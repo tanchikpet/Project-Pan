@@ -715,7 +715,24 @@
     flex-shrink: 0;
   }
 
-@keyframes spin{to{transform:rotate(360deg)}}</style>
+@keyframes spin{to{transform:rotate(360deg)}}#archiveDialog { box-sizing:border-box; width:min(440px,calc(100% - 28px)); max-height:calc(100dvh - 32px); padding:24px; border:1px solid var(--border2); border-radius:20px; background:var(--surface); color:var(--text); overflow-y:auto; }
+#archiveDialog::backdrop { background:rgba(35,20,24,.45); }
+#archiveDialog h2 { margin:0 0 12px; font-size:23px; }
+#archiveProductName { line-height:1.5; overflow-wrap:anywhere; }
+#archiveDialog label { display:block; margin:18px 0 8px; font-size:14px; font-weight:600; }
+#archiveDialog input,#archiveDialog select { box-sizing:border-box; display:block; width:100%; min-height:48px; padding:10px 12px; font:inherit; font-size:16px; background:var(--surface); color:inherit; border:1px solid var(--border2); border-radius:10px; }
+#archiveStorageNote { font-size:12px; line-height:1.5; margin:16px 0; }
+.archive-dialog-actions { display:flex; gap:12px; }
+#archiveDialog button,.archive-action { min-height:44px; padding:10px 14px; font:inherit; border:1px solid var(--accent); border-radius:10px; background:var(--surface); color:var(--accent); cursor:pointer; }
+.archive-dialog-actions button { flex:1; }
+#archiveDialog .archive-save { background:var(--accent); color:white; }
+#archiveRestore { width:100%; margin-top:16px; }
+#archiveRestore[hidden],#archiveOtherField[hidden] { display:none; }
+.archive-action { margin:10px 0 0; font-size:13px; }
+#archiveDialog :focus-visible,.archive-action:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+.prod-end { overflow-wrap:anywhere; }
+
+</style>
 </head>
 <body>
 
@@ -813,7 +830,7 @@
     <div class="tabs-sort-row">
       <div class="catalog-tabs">
         <button class="ctab active" id="ctab-active" onclick="switchCatalogTab('active')">Активные <span class="count-badge" id="badge-active">—</span></button>
-        <button class="ctab" id="ctab-finished" onclick="switchCatalogTab('finished')">Закончившиеся <span class="count-badge" id="badge-finished">—</span></button>
+        <button class="ctab" id="ctab-finished" onclick="switchCatalogTab('finished')">Архив <span class="count-badge" id="badge-finished">—</span></button>
       </div>
       <select class="filter-select" id="sortSelect" onchange="renderTable()">
         <option value="date-desc">Куплено ↓ (новые)</option>
@@ -860,7 +877,7 @@
     <div class="tabs-sort-row">
       <div class="catalog-tabs">
         <button class="ctab active" id="skface-ctab-active" onclick="switchSkFaceTab('active')">Активные <span class="count-badge" id="skface-badge-active">—</span></button>
-        <button class="ctab" id="skface-ctab-finished" onclick="switchSkFaceTab('finished')">Закончившиеся <span class="count-badge" id="skface-badge-finished">—</span></button>
+        <button class="ctab" id="skface-ctab-finished" onclick="switchSkFaceTab('finished')">Архив <span class="count-badge" id="skface-badge-finished">—</span></button>
       </div>
       <select class="filter-select" id="skFaceSortSelect" onchange="renderSkFaceTable()">
         <option value="date-desc">Куплено ↓ (новые)</option>
@@ -904,7 +921,7 @@
     <div class="tabs-sort-row">
       <div class="catalog-tabs">
         <button class="ctab active" id="skbody-ctab-active" onclick="switchSkBodyTab('active')">Активные <span class="count-badge" id="skbody-badge-active">—</span></button>
-        <button class="ctab" id="skbody-ctab-finished" onclick="switchSkBodyTab('finished')">Закончившиеся <span class="count-badge" id="skbody-badge-finished">—</span></button>
+        <button class="ctab" id="skbody-ctab-finished" onclick="switchSkBodyTab('finished')">Архив <span class="count-badge" id="skbody-badge-finished">—</span></button>
       </div>
       <select class="filter-select" id="skBodySortSelect" onchange="renderSkBodyTable()">
         <option value="date-desc">Куплено ↓ (новые)</option>
@@ -939,6 +956,34 @@
   </div>
 </div>
 <div class="footer">Обновлено июнь 2026 · <span>♡</span> Личный трекер косметики</div>
+
+<dialog id="archiveDialog" aria-labelledby="archiveTitle" aria-describedby="archiveProductName archiveStorageNote">
+  <form id="archiveForm">
+    <h2 id="archiveTitle">Убрать в архив</h2>
+    <p id="archiveProductName"></p>
+    <label for="archiveReason">Причина</label>
+    <select id="archiveReason" required>
+      <option value="finished">Закончилось</option>
+      <option value="spoiled">Испортилось / засохло</option>
+      <option value="expired">Истёк срок годности</option>
+      <option value="unsuitable">Не подошло</option>
+      <option value="given">Отдала / продала</option>
+      <option value="other">Другое</option>
+    </select>
+    <div id="archiveOtherField" hidden>
+      <label for="archiveOther">Укажи причину</label>
+      <input id="archiveOther" type="text" maxlength="200" placeholder="Например, разбилась упаковка">
+    </div>
+    <label for="archiveDate">Дата</label>
+    <input id="archiveDate" type="date" required>
+    <p id="archiveStorageNote">Изменения сохраняются в этом браузере на устройстве.</p>
+    <div class="archive-dialog-actions">
+      <button type="button" id="archiveCancel">Отмена</button>
+      <button type="submit" class="archive-save">Сохранить</button>
+    </div>
+    <button type="button" id="archiveRestore">Вернуть в активные</button>
+  </form>
+</dialog>
 
 <script>
 // ─── HELPERS ─────────────────────────────────────────────────
@@ -1462,11 +1507,13 @@ function processCSV(text, filename) {
       })).filter(p=>p.cat&&p.name&&p.buyDate);
     }
 
+    const previousCollections=collectionGroups();
     let label = '', count = 0;
     // Определяем раздел по имени файла
     const isBody = fname.includes('тело') || fname.includes('body') || fname.includes('_telo');
     const isFace = !isBody && (fname.includes('лиц') || fname.includes('face') || fname.includes('уход_за_лицом') || fname.includes('уход за лицом'));
     const isCos  = !isBody && !isFace;
+    if (!confirm('Импорт заменит выбранный раздел данными из CSV, включая отметки архива. Продолжить?')) return;
     if (isBody) {
       appBody = pSk(rows, 'Уход за телом'); label='Уход за телом'; count=appBody.length;
     } else if (isFace) {
@@ -1474,7 +1521,11 @@ function processCSV(text, filename) {
     } else {
       appCos = pCos(rows); label='Косметика'; count=appCos.length;
     }
-    if (!count) { toasts('⚠ Не удалось прочитать данные — проверь формат файла'); return; }
+    if (!count || !persistCollections()) {
+      ({tableBody:appCos,skFaceTableBody:appFace,skBodyTableBody:appBody}=previousCollections);
+      if(!count) toasts('⚠ Не удалось прочитать данные — проверь формат файла');
+      return;
+    }
     toasts(`✓ Обновлено: ${label} (${count} средств)`);
     reinitCurrentPage();
 }
@@ -1493,7 +1544,7 @@ function destroyCharts() {
 function initAnalytics() {
   const ps = appCos;
   const forCharts = ps.filter(p => p.buyDate && p.buyDate.getFullYear() >= 2022);
-  const finished  = ps.filter(p => p.finished);
+  const finished  = ps.filter(isUsedUp);
   const active    = ps.filter(p => !p.finished);
   const total     = forCharts.reduce((a,p)=>a+p.price, 0);
   const months    = Math.max(1, Math.round((new Date(2026,5,1)-new Date(2022,6,1))/(1000*60*60*24*30.44)));
@@ -1868,7 +1919,7 @@ function makeCatalog(getProds, ids) {
     const tbody = document.getElementById(ids.tbody);
     const noRes = document.getElementById(ids.noResults);
 
-    if (!slice.length) { tbody.innerHTML=''; noRes.style.display='block'; }
+    if (!slice.length) { tbody.innerHTML=''; const list=document.getElementById('list-' + ids.tbody); if(list) list.innerHTML=''; noRes.style.display='block'; }
     else {
       noRes.style.display = 'none';
       tbody.innerHTML = '';
@@ -1887,9 +1938,10 @@ function makeCatalog(getProds, ids) {
         }
       }
       listEl.innerHTML = slice.map(p => {
+        const productIndex = getProds().indexOf(p);
         const price = p.price>0 ? Math.round(p.price).toLocaleString('ru-RU')+' ₽' : '—';
         const endStr = tab==='finished' && p.endDateStr
-          ? `<span class="prod-dot">·</span><span class="prod-end">закончилось ${fmtDate(p.endDateStr)}</span>` : '';
+          ? `<span class="prod-dot">·</span><span class="prod-end">${escapeArchiveHTML(archiveLabel(p))} · ${fmtDate(p.endDateStr)}</span>` : '';
         const colorHex = guessColor(p.color);
         const colorDot = colorHex
           ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${colorHex};border:1px solid rgba(0,0,0,0.1);vertical-align:middle;margin-right:4px;flex-shrink:0"></span>`
@@ -1915,6 +1967,7 @@ function makeCatalog(getProds, ids) {
           </div>
           <div class="prod-divider"></div>
           <div class="prod-btns">${searchBtns(p.brand, p.name)}</div>
+          <button type="button" class="archive-action" data-archive-group="${ids.tbody}" data-archive-index="${productIndex}">${p.finished ? 'Изменить запись' : 'Убрать в архив'}</button>
         </div>`;
       }).join('');
     }
@@ -1973,7 +2026,7 @@ function makeCatalog(getProds, ids) {
       <div class="metric"><div class="metric-label">Всего средств</div><div class="metric-value">${ps.length}</div></div>
       <div class="metric"><div class="metric-label">Расходы</div><div class="metric-value">${Math.round(tot/1000)}к ₽</div></div>
       <div class="metric"><div class="metric-label">Активных</div><div class="metric-value">${ps.filter(p=>!p.finished).length}</div><div class="metric-sub">используется</div></div>
-      <div class="metric"><div class="metric-label">Закончилось</div><div class="metric-value">${fin.length}</div><div class="metric-sub">${ps.length?Math.round(fin.length/ps.length*100):0}% от всех</div></div>
+      <div class="metric"><div class="metric-label">В архиве</div><div class="metric-value">${fin.length}</div><div class="metric-sub">${ps.length?Math.round(fin.length/ps.length*100):0}% от всех</div></div>
     `;
   }
 
@@ -2079,6 +2132,124 @@ showPage = function(name) {
   const mobBtn = document.getElementById('mob-' + name);
   if (mobBtn) mobBtn.classList.add('active');
 };
+
+// Archive metadata is stored alongside the collection on this device.
+const COLLECTION_STORAGE_KEY = 'project-pan.collection.v1';
+const ARCHIVE_REASONS = {
+  finished: 'Закончилось', spoiled: 'Испортилось / засохло',
+  expired: 'Истёк срок годности', unsuitable: 'Не подошло',
+  given: 'Отдала / продала', other: 'Другое'
+};
+function localDateISO(date = new Date()) {
+  return [date.getFullYear(), String(date.getMonth()+1).padStart(2,'0'), String(date.getDate()).padStart(2,'0')].join('-');
+}
+function isoToDisplay(value) { return value.split('-').reverse().join('.'); }
+function displayToISO(value) { return value ? value.split('.').reverse().join('-') : ''; }
+function validArchiveDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [y,m,d] = value.split('-').map(Number);
+  const date = new Date(y,m-1,d);
+  return date.getFullYear()===y && date.getMonth()===m-1 && date.getDate()===d && value<=localDateISO();
+}
+function isUsedUp(product) { return product.finished && (!product.archiveReason || product.archiveReason==='finished'); }
+function archiveLabel(product) {
+  return product.archiveReason==='other' ? product.archiveReasonText || ARCHIVE_REASONS.other : ARCHIVE_REASONS[product.archiveReason] || ARCHIVE_REASONS.finished;
+}
+function escapeArchiveHTML(text) {
+  return String(text).replace(/[&<>"']/g, char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+}
+function collectionGroups() { return {tableBody:appCos,skFaceTableBody:appFace,skBodyTableBody:appBody}; }
+function persistCollections(groups = collectionGroups()) {
+  try {
+    localStorage.setItem(COLLECTION_STORAGE_KEY,JSON.stringify({version:1,groups}));
+    return true;
+  } catch (error) {
+    toasts('Не удалось сохранить данные на устройстве. Освободи место или разреши хранение данных.');
+    return false;
+  }
+}
+function restoreCollections() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(COLLECTION_STORAGE_KEY) || 'null');
+    if (!saved) return;
+    if (saved.version!==1 || !saved.groups) throw new Error('Invalid collection');
+    const keys=['tableBody','skFaceTableBody','skBodyTableBody'];
+    const restored=keys.map(key=>{
+      if (!Array.isArray(saved.groups[key])) throw new Error('Invalid collection');
+      return saved.groups[key].map(p=>{
+        if (!p || typeof p.name!=='string' || typeof p.cat!=='string' || typeof p.finished!=='boolean') throw new Error('Invalid product');
+        return {...p,buyDate:parseDate(p.buyDateStr),endDate:parseDate(p.endDateStr)};
+      });
+    });
+    [appCos,appFace,appBody]=restored;
+  } catch(error) { toasts('Не удалось прочитать сохранённую коллекцию. Показаны исходные данные.'); }
+}
+let archiveTarget=null;
+let archiveOpener=null;
+const archiveDialog=document.getElementById('archiveDialog');
+const archiveForm=document.getElementById('archiveForm');
+const archiveReason=document.getElementById('archiveReason');
+const archiveOther=document.getElementById('archiveOther');
+const archiveDate=document.getElementById('archiveDate');
+function updateArchiveOther() {
+  const other=archiveReason.value==='other';
+  document.getElementById('archiveOtherField').hidden=!other;
+  archiveOther.required=other;
+  archiveOther.disabled=!other;
+  archiveOther.setCustomValidity('');
+}
+function openArchiveDialog(group,index,opener) {
+  const product=collectionGroups()[group]?.[index];
+  if (!product) return;
+  archiveTarget={group,index}; archiveOpener=opener;
+  archiveForm.reset();
+  document.getElementById('archiveTitle').textContent=product.finished?'Изменить запись':'Убрать в архив';
+  document.getElementById('archiveProductName').textContent=[product.brand,product.name].filter(Boolean).join(' · ');
+  archiveReason.value=product.finished ? product.archiveReason || 'finished' : 'finished';
+  archiveOther.value=product.archiveReasonText || '';
+  archiveDate.max=localDateISO();
+  archiveDate.value=product.finished ? displayToISO(product.endDateStr) || localDateISO() : localDateISO();
+  document.getElementById('archiveRestore').hidden=!product.finished;
+  updateArchiveOther();
+  archiveDialog.showModal();
+}
+function saveArchiveProduct(product) {
+  const {group,index}=archiveTarget;
+  const groups=collectionGroups();
+  const next={...groups,[group]:groups[group].map((p,i)=>i===index?product:p)};
+  if (!persistCollections(next)) return false;
+  groups[group][index]=product;
+  archiveDialog.close();
+  reinitCurrentPage();
+  // After archiving the opener disappears; keep keyboard focus in this catalog.
+  document.querySelector('.page.active .ctab.active')?.focus();
+  return true;
+}
+archiveReason.addEventListener('change',updateArchiveOther);
+archiveOther.addEventListener('input',()=>archiveOther.setCustomValidity(''));
+archiveDate.addEventListener('input',()=>archiveDate.setCustomValidity(''));
+archiveForm.addEventListener('submit',event=>{
+  event.preventDefault();
+  archiveOther.setCustomValidity(archiveReason.value==='other' && !archiveOther.value.trim()?'Укажи причину':'');
+  archiveDate.setCustomValidity(validArchiveDate(archiveDate.value)?'':'Выбери корректную дату не позже сегодняшней');
+  if (!archiveForm.reportValidity() || !archiveTarget) return;
+  const product=collectionGroups()[archiveTarget.group][archiveTarget.index];
+  const endDateStr=isoToDisplay(archiveDate.value);
+  if (saveArchiveProduct({...product,finished:true,endDateStr,endDate:parseDate(endDateStr),archiveReason:archiveReason.value,archiveReasonText:archiveReason.value==='other'?archiveOther.value.trim():''})) toasts('Сохранено в архив');
+});
+document.getElementById('archiveRestore').addEventListener('click',()=>{
+  if (!archiveTarget) return;
+  const product={...collectionGroups()[archiveTarget.group][archiveTarget.index],finished:false,endDateStr:null,endDate:null};
+  delete product.archiveReason; delete product.archiveReasonText;
+  if (saveArchiveProduct(product)) toasts('Средство возвращено в активные');
+});
+document.getElementById('archiveCancel').addEventListener('click',()=>archiveDialog.close());
+archiveDialog.addEventListener('close',()=>{archiveTarget=null;if(archiveOpener?.isConnected) archiveOpener.focus();});
+document.addEventListener('click',event=>{
+  const button=event.target.closest('[data-archive-group]');
+  if(button) openArchiveDialog(button.dataset.archiveGroup,Number(button.dataset.archiveIndex),button);
+});
+restoreCollections();
 
 // ── STARTUP
 showPage('analytics');
