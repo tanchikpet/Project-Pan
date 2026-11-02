@@ -752,31 +752,41 @@
 
 <section class="account-bar" aria-label="Аккаунт и синхронизация">
   <div><strong id="accountIdentity">Без аккаунта</strong><p id="syncStatus" role="status">Сохранено на этом устройстве</p></div>
-  <button type="button" id="accountOpen">Войти / Зарегистрироваться</button>
+  <div class="account-buttons"><button type="button" data-open-settings>Настройки</button><button type="button" id="accountOpen">Войти / Зарегистрироваться</button></div>
 </section>
 <nav class="main-nav">
   <div class="main-nav-inner">
     <div class="nav-tabs">
-      <button class="active" onclick="showPage('analytics')">Аналитика</button>
+      <button class="active" onclick="showPage('analytics')">Главная</button>
       <button onclick="showPage('catalog')">Косметика</button>
       <button onclick="showPage('skincare-face')">Уход за лицом</button>
       <button onclick="showPage('skincare-body')">Уход за телом</button>
     </div>
-    <label class="nav-upload-btn">↑ Обновить<input type="file" accept=".csv" style="display:none" onchange="if(this.files[0]){handleCSVUpload(this.files[0]);this.value='';}"></label>
+    <button type="button" class="nav-upload-btn" data-add-product>+ Добавить средство</button>
     <button class="burger-btn" id="burgerBtn" onclick="toggleBurger()"><span></span><span></span><span></span></button>
   </div>
   <div class="mob-menu" id="mobMenu">
-    <button onclick="showPage('analytics');toggleBurger()" id="mob-analytics">Аналитика</button>
+    <button onclick="showPage('analytics');toggleBurger()" id="mob-analytics">Главная</button>
     <button onclick="showPage('catalog');toggleBurger()" id="mob-catalog">Косметика</button>
     <button onclick="showPage('skincare-face');toggleBurger()" id="mob-skincare-face">Уход за лицом</button>
     <button onclick="showPage('skincare-body');toggleBurger()" id="mob-skincare-body">Уход за телом</button>
-    <label class="mob-upload-btn">↑ Обновить данные<input type="file" accept=".csv" style="display:none" onchange="if(this.files[0]){handleCSVUpload(this.files[0]);this.value='';toggleBurger();}"></label>
+    <button type="button" class="mob-upload-btn" data-add-product onclick="toggleBurger()">+ Добавить средство</button>
   </div>
 </nav>
 
 <!-- ANALYTICS PAGE -->
 <div id="page-analytics" class="page active">
   <div class="container">
+<section id="collectionWelcome" class="collection-welcome" aria-labelledby="welcomeTitle">
+      <div class="welcome-art" aria-hidden="true"><svg viewBox="0 0 260 180" width="260" height="180" xmlns="http://www.w3.org/2000/svg"><rect x="14" y="151" width="232" height="7" rx="3.5" fill="#DDC8C0"/><rect x="32" y="66" width="58" height="84" rx="15" fill="#EFC5CD"/><rect x="49" y="41" width="24" height="26" rx="4" fill="#BFA16C"/><rect x="45" y="95" width="32" height="28" rx="5" fill="#FFF9F4"/><rect x="112" y="95" width="34" height="55" rx="5" fill="#843044"/><rect x="116" y="59" width="26" height="40" rx="10" fill="#BB596E"/><rect x="168" y="111" width="72" height="39" rx="13" fill="#C9C0D6"/><rect x="165" y="104" width="78" height="15" rx="5" fill="#A89EB9"/><path d="M215 29 L219 40 L230 44 L219 48 L215 59 L211 48 L200 44 L211 40Z" fill="#CCAA69"/></svg></div>
+      <p class="welcome-eyebrow">ВСЁ ЛЮБИМОЕ — РЯДОМ</p>
+      <h2 id="welcomeTitle">С чего начнётся твоя косметичка?</h2>
+      <p class="welcome-copy">Добавь первое средство. Здесь будут твоя коллекция, законченные продукты и история покупок.</p>
+      <div class="welcome-actions"><button type="button" class="primary-action" data-add-product>Добавить средство</button><button type="button" id="welcomeLogin">Уже есть аккаунт? Войти</button></div>
+      <button type="button" class="welcome-table" data-open-settings>Есть таблица? Перенести средства</button>
+      <details class="collection-help"><summary>Где моя прежняя коллекция?</summary><p>Если уже сохраняла коллекцию в аккаунте — войди. Если вела её без входа, открой сайт на том же устройстве и в том же браузере. После входа её можно перенести в аккаунт. Исходную таблицу можно загрузить в настройках.</p></details>
+    </section>
+    <div id="analyticsContent" hidden>
     <div class="metrics" id="metrics-row"></div>
     <div class="tabs">
       <button class="tab active" onclick="showTab('spend')">По годам</button>
@@ -822,6 +832,7 @@
         <div class="card-title">Средний срок использования по категориям (дней)</div>
         <div class="chart-wrap h300"><canvas id="cDuration"></canvas></div>
       </div>
+    </div>
     </div>
   </div>
 </div>
@@ -960,11 +971,11 @@
     </div>
   </div>
 </div>
-<div class="footer">Обновлено июнь 2026 · <span>♡</span> Личный трекер косметики</div>
+<div class="footer"><span>♡</span> Твоя коллекция — твои истории</div>
 
 
 <dialog id="accountDialog" aria-labelledby="accountTitle">
-  <h2 id="accountTitle">Твоя косметичка в облаке</h2>
+  <h2 id="accountTitle">Войти в косметичку</h2>
   <form id="accountForm">
     <label for="accountEmail">Электронная почта</label>
     <input id="accountEmail" type="email" autocomplete="email" maxlength="254" required>
@@ -986,21 +997,58 @@
     <p id="accountSignedEmail"></p>
     <button id="accountSync" type="button">Синхронизировать сейчас</button>
     <button id="accountMigrate" type="button" hidden>Перенести локальную коллекцию в аккаунт</button>
-    <p>Перенос заменяет коллекцию аккаунта. Перед переносом можно скачать копию.</p>
+    <p id="migrationNote" hidden>На этом устройстве есть отдельная коллекция. Можно перенести её в аккаунт.</p>
     <button id="accountSignOut" type="button">Выйти из аккаунта</button>
     <button id="accountDelete" type="button">Удалить аккаунт и облачные данные</button>
   </section>
   <section id="syncConflict" hidden aria-label="Конфликт синхронизации">
     <h3>Коллекция изменилась на другом устройстве</h3>
-    <p>Выбери, какую версию оставить. Сначала можно скачать копию текущей коллекции.</p>
+    <p>Выбери, какую версию оставить. Резервную копию текущей коллекции можно сохранить в настройках.</p>
     <button id="syncUseCloud" type="button">Загрузить облачную версию</button>
     <button id="syncUseLocal" type="button">Заменить облачную текущей</button>
   </section>
   <p id="accountMessage" role="status" aria-live="polite"></p>
-  <button id="accountExport" type="button">Скачать копию коллекции</button>
-  <label class="account-import">Загрузить копию JSON<input id="accountImport" type="file" accept=".json,application/json"></label>
-  <p class="account-help">Без интернета изменения хранятся на устройстве. Для входа и синхронизации нужен интернет. При очистке данных браузера несинхронизированные изменения удаляются.</p>
   <button id="accountClose" type="button">Закрыть</button>
+</dialog>
+
+<dialog id="productDialog" class="utility-dialog" aria-labelledby="productTitle">
+  <form id="productForm">
+    <h2 id="productTitle">Добавить средство</h2>
+    <p>Начни с названия и категории. Остальные сведения можно не заполнять.</p>
+    <label for="productSection">Раздел</label>
+    <select id="productSection"><option value="tableBody">Косметика</option><option value="skFaceTableBody">Уход за лицом</option><option value="skBodyTableBody">Уход за телом</option></select>
+    <label for="productName">Название</label><input id="productName" maxlength="200" placeholder="Например, увлажняющий крем" required>
+    <label for="productCategory">Категория</label><input id="productCategory" maxlength="100" list="productCategories" placeholder="Например, крем или помада" required>
+    <datalist id="productCategories"><option value="Крем"><option value="Помада"><option value="Тушь"><option value="Тени"><option value="Сыворотка"><option value="Очищение"><option value="Лосьон"></datalist>
+    <details class="product-more"><summary>Бренд, оттенок и покупка</summary>
+      <label for="productBrand">Бренд</label><input id="productBrand" maxlength="200" autocomplete="off">
+      <label for="productShade">Оттенок</label><input id="productShade" maxlength="200">
+      <label for="productPrice">Цена, ₽</label><input id="productPrice" type="number" min="0" max="100000000" step="0.01" inputmode="decimal" placeholder="Необязательно">
+      <label for="productDate">Дата покупки</label><input id="productDate" type="date" required>
+      <p>По умолчанию указана сегодняшняя дата. Если купила раньше, выбери нужную.</p>
+    </details>
+    <p id="productMessage" role="status"></p>
+    <div class="account-actions"><button type="button" id="productCancel">Отмена</button><button type="submit" class="primary-action">Добавить</button></div>
+  </form>
+</dialog>
+<dialog id="dataDialog" class="utility-dialog" aria-labelledby="dataTitle">
+  <h2 id="dataTitle">Настройки</h2>
+  <p>После входа коллекция сохраняется в аккаунте автоматически. Здесь — дополнительные способы переноса и восстановления.</p>
+  <details id="tableTools"><summary>Перенести из таблицы</summary>
+    <p>Выбери раздел и файл своей таблицы в формате CSV. Перед заменой записей появится подтверждение.</p>
+    <label for="tableSection">Куда перенести</label>
+    <select id="tableSection"><option value="tableBody">Косметика</option><option value="skFaceTableBody">Уход за лицом</option><option value="skBodyTableBody">Уход за телом</option></select>
+    <label class="file-action">Выбрать таблицу<input id="tableImport" type="file" accept=".csv,text/csv"></label>
+    <p>Шаблоны столбцов: <a href="templates/cosmetics.csv" download>косметика</a>, <a href="templates/skincare.csv" download>уход</a>.</p>
+  </details>
+  <details><summary>Резервная копия</summary>
+    <p>Сохрани отдельный файл на случай восстановления или переноса. Для обычного входа и синхронизации он не нужен.</p>
+    <button id="accountExport" type="button">Сохранить резервную копию</button>
+    <label class="file-action">Восстановить из копии<input id="accountImport" type="file" accept=".json,application/json"></label>
+    <p>Выбери файл, ранее сохранённый кнопкой выше. Перед заменой коллекции появится подтверждение.</p>
+  </details>
+  <p id="dataMessage" role="status" aria-live="polite"></p>
+  <button id="dataClose" type="button">Закрыть</button>
 </dialog>
 
 <dialog id="archiveDialog" aria-labelledby="archiveTitle" aria-describedby="archiveProductName archiveStorageNote">
@@ -1108,15 +1156,17 @@ function parseCSV(text) {
 }
 
 function handleCSVUpload(file) {
+  const scope = window.PanCloud?.scopeToken();
   const reader = new FileReader();
   reader.onload = e => {
+    if (scope !== window.PanCloud?.scopeToken()) { toasts('Аккаунт изменился. Выбери таблицу ещё раз.'); return; }
     let text = e.target.result;
     if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // убрать BOM
     processCSV(text, file.name);
   };
   reader.onerror = () => {
     const r2 = new FileReader();
-    r2.onload = e2 => processCSV(e2.target.result, file.name);
+    r2.onload = e2 => { if(scope === window.PanCloud?.scopeToken()) processCSV(e2.target.result, file.name); };
     r2.readAsText(file, 'windows-1251');
   };
   reader.readAsText(file, 'utf-8');
@@ -1166,6 +1216,8 @@ function processCSV(text, filename) {
       return;
     }
     toasts(`✓ Обновлено: ${label} (${count} средств)`);
+    const feedback = document.getElementById('dataMessage');
+    if (feedback) feedback.textContent = `Перенесено: ${label} — ${count} средств.`;
     reinitCurrentPage();
 }
 
@@ -1181,7 +1233,11 @@ function destroyCharts() {
 }
 
 function initAnalytics() {
-  const ps = appCos;
+  const ps = [...appCos,...appFace,...appBody];
+  const empty = ps.length === 0;
+  document.getElementById('collectionWelcome').hidden = !empty;
+  document.getElementById('analyticsContent').hidden = empty;
+  if (empty) { destroyCharts(); return; }
   const forCharts = ps.filter(p => p.buyDate && p.buyDate.getFullYear() >= 2022);
   const finished  = ps.filter(isUsedUp);
   const active    = ps.filter(p => !p.finished);
@@ -1897,6 +1953,7 @@ restoreCollections();
 showPage('analytics');
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+<script src="product-ui.js"></script>
 <script src="cloud-sync.js"></script>
 </body>
 </html>
