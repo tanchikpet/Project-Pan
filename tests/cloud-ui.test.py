@@ -68,9 +68,39 @@ with sync_playwright() as pw:
  browser=pw.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH','/usr/bin/chromium'),headless=True,args=['--no-sandbox'])
  c1,p1=setup(browser);p1.wait_for_timeout(150)
  assert p1.evaluate('appCos.length')==0 # no author's seed data in new accounts
- open_account(p1);p1.on('dialog',lambda d:d.accept())
+ assert p1.locator('#collectionWelcome').is_visible()
+ assert not p1.locator('#analyticsContent').is_visible()
+ assert p1.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+ assert p1.locator('#collectionWelcome [data-add-product]').bounding_box()['y']+p1.locator('#collectionWelcome [data-add-product]').bounding_box()['height'] <= 844
+ p1.screenshot(path='/workspace/project-pan/tests/welcome-mobile.png',full_page=True)
+ open_account(p1)
+ assert p1.locator('#accountDialog #accountImport').count()==0
+ assert p1.locator('#accountDialog #accountExport').count()==0
+ assert 'JSON' not in p1.locator('#accountDialog').inner_text()
+ close_account(p1)
+ p1.locator('#collectionWelcome [data-add-product]').click()
+ p1.locator('#productName').fill('Новый крем')
+ p1.locator('#productCategory').fill('Крем')
+ p1.locator('#productSection').select_option('skFaceTableBody')
+ p1.locator('#productForm button[type=submit]').click()
+ assert p1.evaluate('appFace.length')==1
+ assert p1.locator('#page-skincare-face').is_visible()
+ p1.evaluate("showPage('analytics')")
+ assert not p1.locator('#collectionWelcome').is_visible()
+ assert p1.locator('#analyticsContent').is_visible()
+ assert p1.locator('#metrics-row .metric-value').first.inner_text()=='1'
+ p1.reload();p1.wait_for_function('appFace.length===1')
+ p1.locator('.account-bar [data-open-settings]').click()
+ p1.on('dialog',lambda d:d.accept())
+ p1.locator('#tableTools summary').click()
+ p1.locator('#tableSection').select_option('skBodyTableBody')
+ p1.locator('#tableImport').set_input_files(ROOT/'templates'/'skincare.csv')
+ p1.wait_for_function('appBody.length===1')
+ assert p1.evaluate('appFace.length')==1
+ assert 'Уход за телом' in p1.locator('#dataMessage').inner_text()
+ p1.locator('#dataDialog details').nth(1).locator('summary').click()
  p1.locator('#accountImport').set_input_files({'name':'backup.json','mimeType':'application/json','buffer':json.dumps({'version':1,'groups':groups}).encode()})
- p1.wait_for_function('appCos.length===1');close_account(p1);p1.evaluate("showPage('catalog')")
+ p1.wait_for_function('appCos.length===1');p1.locator('#dataClose').click();p1.evaluate("showPage('catalog')")
  assert p1.locator('.prod-brand img').count()==0
  p1.locator('[data-category-handler]').filter(has_text="Тени").click()
  assert p1.locator('.prod-item').count()==1
@@ -106,5 +136,5 @@ with sync_playwright() as pw:
  # Recovery screen follows SDK PASSWORD_RECOVERY event.
  p3.evaluate('__recover()');p3.wait_for_function('document.getElementById("newPasswordForm").hidden===false')
  assert not errors,errors
- print('PASS: empty new users, guest JSON import, safe names/category filters, explicit migration, two-device archive sync, offline conflict, namespace isolation, lost-response recovery, password recovery; no JS runtime errors. SDK/network mocked; SQL tested separately.')
+ print('PASS: welcome instead of empty charts, manual care product and persistence, aggregate totals, clean login, settings-only backups; empty new users, guest JSON import, safe names/category filters, explicit migration, two-device archive sync, offline conflict, namespace isolation, lost-response recovery, password recovery; no JS runtime errors. SDK/network mocked; SQL tested separately.')
  browser.close()

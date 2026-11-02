@@ -18,6 +18,7 @@
   const cacheKey = () => user ? 'project-pan.user.v2.' + user.id : GUEST;
   const redirect = () => location.origin + location.pathname;
   const message = text => { el('accountMessage').textContent = text; };
+  const dataMessage = text => { el('dataMessage').textContent = text; };
   function normalize(groups) {
     if (!groups || GROUPS.some(k => !Array.isArray(groups[k]) || groups[k].length > 10000)) throw new Error('Некорректная коллекция');
     return Object.fromEntries(GROUPS.map(key => [key, groups[key].map(raw => {
@@ -58,6 +59,8 @@
   function render() {
     el('accountIdentity').textContent = user ? user.email || 'Мой аккаунт' : 'Без аккаунта';
     el('accountOpen').textContent = user ? 'Мой аккаунт' : 'Войти / Зарегистрироваться';
+    el('accountTitle').textContent = user ? 'Мой аккаунт' : 'Войти в косметичку';
+    el('welcomeLogin').hidden = !!user;
     el('accountForm').hidden = !!user || recovery;
     el('accountSignedIn').hidden = !user || recovery;
     el('newPasswordForm').hidden = !recovery;
@@ -66,6 +69,7 @@
     let guest = null;
     try { guest = load(GUEST); } catch (_) { /* Export remains available for current state. */ }
     el('accountMigrate').hidden = !user || !guest || !total(guest.groups);
+    el('migrationNote').hidden = el('accountMigrate').hidden;
     el('archiveStorageNote').textContent = user
       ? 'Сохраняется на устройстве и отправляется в твой аккаунт при подключении к интернету.'
       : 'Изменения сохраняются в этом браузере на устройстве. Войди для синхронизации.';
@@ -166,6 +170,7 @@
     user = session?.user || null;
     conflict = null;
     if (archiveDialog.open) archiveDialog.close();
+    window.PanUI?.closeEditor();
     try {
       state = load(cacheKey()) || {groups:empty(), revision:0, dirty:false};
       lastStored = localStorage.getItem(cacheKey());
@@ -266,8 +271,8 @@
       const groups = normalize(parsed.groups);
       if (token !== epoch) return;
       if (!confirm('Заменить текущую коллекцию данными из этой копии?')) return;
-      if (write(groups)) { apply(state.groups); render(); message('Копия загружена.'); }
-    } catch (_) { message('Не удалось загрузить копию. Нужен JSON-файл коллекции размером до 5 МБ.'); }
+      if (write(groups)) { apply(state.groups); render(); dataMessage('Коллекция восстановлена из копии.'); }
+    } catch (_) { dataMessage('Не удалось восстановить коллекцию. Выбери резервную копию, сохранённую в приложении, размером до 5 МБ.'); }
     finally { event.target.value = ''; }
   });
   el('accountDelete').addEventListener('click', () => authAction(async () => {
@@ -289,7 +294,7 @@
     if (event.key === cacheKey()) status('Коллекция изменена в другой вкладке · обнови страницу');
   });
   setInterval(() => { if (!document.hidden) sync(); }, 30000);
-  window.PanCloud = {write, sync};
+  window.PanCloud = {write, sync, scopeToken:()=>epoch};
   async function init() {
     try {
       // Migrate an actual saved collection, never the original author's embedded demo.
