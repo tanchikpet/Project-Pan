@@ -1,0 +1,22 @@
+.account-bar { max-width:1200px; margin:12px auto 20px; padding:16px 24px; display:flex; align-items:center; justify-content:space-between; gap:16px; background:var(--surface); border-bottom:1px solid var(--border); }
+.account-bar p { margin:5px 0 0; font-size:12px; color:var(--text-mid); }
+.account-bar strong { overflow-wrap:anywhere; }
+.account-bar button,#accountDialog button { min-height:44px; padding:10px 14px; border:1px solid var(--accent); color:var(--accent); border-radius:10px; background:var(--surface); font:inherit; cursor:pointer; }
+#accountDialog { box-sizing:border-box; width:min(480px,calc(100% - 28px)); max-height:calc(100dvh - 32px); margin:auto; padding:24px; border:1px solid var(--border); border-radius:20px; background:var(--surface); color:var(--text); overflow-y:auto; }
+#accountDialog::backdrop { background:rgba(35,20,24,.45); }
+#accountDialog h2 { margin:0 0 16px; font-size:24px; }
+#accountDialog label { display:block; margin:16px 0 8px; }
+#accountDialog input:not([type=file]) { box-sizing:border-box; width:100%; min-height:48px; font:inherit; font-size:16px; padding:10px 12px; border:1px solid var(--border2); border-radius:10px; }
+#accountDialog p { font-size:13px; line-height:1.6; overflow-wrap:anywhere; }
+#accountDialog .account-help { font-size:12px; color:var(--text-mid); }
+#accountDialog section button,#accountExport,#accountClose { display:block; width:100%; margin-top:12px; }
+#accountDialog [hidden] { display:none; }
+.account-actions { display:flex; gap:12px; margin:16px 0; }
+.account-actions button { flex:1; }
+#accountSignIn { background:var(--accent)!important; color:white!important; }
+#syncConflict { padding:16px; margin:16px 0; border:1px solid var(--accent); border-radius:12px; }
+#accountDialog button:disabled { opacity:.5; cursor:wait; }
+#accountDialog :focus-visible,.account-bar button:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+.account-import input { display:block; max-width:100%; margin-top:8px; }
+#accountMessage { min-height:22px; font-weight:500; }
+@media(max-width:600px) { .account-bar { margin-top:0; padding:14px 20px; align-items:flex-start; flex-direction:column; } .account-bar button { width:100%; } }
