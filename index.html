@@ -733,6 +733,7 @@
 .prod-end { overflow-wrap:anywhere; }
 
 </style>
+<link rel="stylesheet" href="cloud.css">
 </head>
 <body>
 
@@ -749,6 +750,10 @@
   </div>
 </header>
 
+<section class="account-bar" aria-label="Аккаунт и синхронизация">
+  <div><strong id="accountIdentity">Без аккаунта</strong><p id="syncStatus" role="status">Сохранено на этом устройстве</p></div>
+  <button type="button" id="accountOpen">Войти / Зарегистрироваться</button>
+</section>
 <nav class="main-nav">
   <div class="main-nav-inner">
     <div class="nav-tabs">
@@ -957,6 +962,47 @@
 </div>
 <div class="footer">Обновлено июнь 2026 · <span>♡</span> Личный трекер косметики</div>
 
+
+<dialog id="accountDialog" aria-labelledby="accountTitle">
+  <h2 id="accountTitle">Твоя косметичка в облаке</h2>
+  <form id="accountForm">
+    <label for="accountEmail">Электронная почта</label>
+    <input id="accountEmail" type="email" autocomplete="email" maxlength="254" required>
+    <label for="accountPassword">Пароль</label>
+    <input id="accountPassword" type="password" autocomplete="current-password" minlength="8" required>
+    <p>Для нового аккаунта подтверди почту по ссылке из письма.</p>
+    <div class="account-actions">
+      <button id="accountSignIn" type="submit">Войти</button>
+      <button id="accountSignUp" type="submit">Создать аккаунт</button>
+    </div>
+    <button id="accountReset" type="button">Забыли пароль?</button>
+  </form>
+  <form id="newPasswordForm" hidden>
+    <label for="newPassword">Новый пароль</label>
+    <input id="newPassword" type="password" autocomplete="new-password" minlength="8" required>
+    <button type="submit">Сохранить пароль</button>
+  </form>
+  <section id="accountSignedIn" hidden>
+    <p id="accountSignedEmail"></p>
+    <button id="accountSync" type="button">Синхронизировать сейчас</button>
+    <button id="accountMigrate" type="button" hidden>Перенести локальную коллекцию в аккаунт</button>
+    <p>Перенос заменяет коллекцию аккаунта. Перед переносом можно скачать копию.</p>
+    <button id="accountSignOut" type="button">Выйти из аккаунта</button>
+    <button id="accountDelete" type="button">Удалить аккаунт и облачные данные</button>
+  </section>
+  <section id="syncConflict" hidden aria-label="Конфликт синхронизации">
+    <h3>Коллекция изменилась на другом устройстве</h3>
+    <p>Выбери, какую версию оставить. Сначала можно скачать копию текущей коллекции.</p>
+    <button id="syncUseCloud" type="button">Загрузить облачную версию</button>
+    <button id="syncUseLocal" type="button">Заменить облачную текущей</button>
+  </section>
+  <p id="accountMessage" role="status" aria-live="polite"></p>
+  <button id="accountExport" type="button">Скачать копию коллекции</button>
+  <label class="account-import">Загрузить копию JSON<input id="accountImport" type="file" accept=".json,application/json"></label>
+  <p class="account-help">Без интернета изменения хранятся на устройстве. Для входа и синхронизации нужен интернет. При очистке данных браузера несинхронизированные изменения удаляются.</p>
+  <button id="accountClose" type="button">Закрыть</button>
+</dialog>
+
 <dialog id="archiveDialog" aria-labelledby="archiveTitle" aria-describedby="archiveProductName archiveStorageNote">
   <form id="archiveForm">
     <h2 id="archiveTitle">Убрать в архив</h2>
@@ -1017,416 +1063,9 @@ function toasts(msg) {
 
 // ─── DATA ────────────────────────────────────────────────────
 // Cosmetics: [cat, brand, name, color, buyDate, price, finished, endDate]
-const COS_RAW = [
-  ["Тени","Ruby Rose","Тени Ruby Rose палетка 12 цветов","Черный, фиолетовый, самопрес из другой палетки красный, черный, голубой и синий","01.01.1999",0.0,false,null],
-  ["Тени","CHANEL","Тени Chanel les палетка 9 ombres","74 nymphéa","01.01.1999",0.0,false,null],
-  ["Тени","YVES ROCHER","Тени Yves Rocher duo poudre couleur intense","23 or et ultra-marine","01.01.2009",0.0,false,null],
-  ["Бронзер","AVON","Glow warm bronzing pearls","Warm Glow","01.01.2009",0.0,false,null],
-  ["Тени","ЛЭТУАЛЬ","Тени для бровей Летуаль la palette pro sourcils","101 cleopatre","01.01.2009",0.0,false,null],
-  ["Карандаш для глаз","Mary Kay","Карандаш для бровей Mary Kay soft auburn","3A08","01.01.2009",0.0,false,null],
-  ["Помада","AVON","Помада AVON","Красная","01.01.2009",0.0,false,null],
-  ["Румяна","","Палетка наборных румян, 3 оттенка","","01.01.2009",0.0,false,null],
-  ["Хайлайтер","MAYBELLINE","Хайлайтер Maybelline face studio shimmer highlighter","006, prosecco","01.01.2019",0.0,false,null],
-  ["Хайлайтер","MAX FACTOR","Хайлайтер Max Factor facefunity highlight powder","002, golden hour","01.01.2019",0.0,false,null],
-  ["Карандаш для глаз","SODA","Карандаш для глаз #eyeliveunicorns","Белый","01.01.2019",0.0,false,null],
-  ["Помада","KARL LAGERFELD & MODELCO","Жидкая матовая помада для губ LIP LIGHTS LIQUID","Iconic red, 19118","01.01.2021",0.0,false,null],
-  ["Помада","MAX FACTOR","Помада для губ Max Factor Colour Elixir Lipstick","730, flushed fuchsia","01.01.2022",0.0,false,null],
-  ["Помада","MAX FACTOR","Помада для губ Max Factor Velvet Mattes Collection","20, rose","01.01.2022",0.0,false,null],
-  ["Тени","LOTTIE","Палетка теней для век 9 оттенков, THE ROSE GOLDS","the rose golds","01.01.2022",0.0,false,null],
-  ["Карандаш для губ","ЛЭТУАЛЬ","Карандаш для губ Lingerie Satine","Светло-коричневый","22.07.2022",99.0,false,null],
-  ["Тени","theBALM","Палетка теней THEBALM AND THE BEAUTIFUL EPISODE 2","Коричневая гамма","22.07.2022",1994.0,false,null],
-  ["Глиттер","ЛЭТУАЛЬ","Глиттер-гель для лица и тела SUPER FACE&BODY GLITTER-GEL","Серебряный","27.12.2022",104.0,false,null],
-  ["Глиттер","ЛЭТУАЛЬ","Глиттер-гель для лица и тела SUPER FACE&BODY GLITTER-GEL","Розовый","27.12.2022",104.0,false,null],
-  ["Тени","LOTTIE","Тени для век однушка Power Foil","GOLDEN HOUR","27.12.2022",759.0,false,null],
-  ["Тональное средство","GARNIER","GARNIER BB Крем матирующий ГИАЛУРОНОВЫЙ АЛОЭ-УХОД 5-В-1","Натурально бежевый","18.02.2023",416.65,false,null],
-  ["Карандаш для глаз","L'OREAL PARIS","Стойкий автоматический гелевый карандаш INFAILLIBLE GEL AUTO LINER","Бирюзовый","11.04.2023",550.8,false,null],
-  ["Карандаш для глаз","SODA","Карандаш для глаз LONG STAY EYE PENCIL","CORAL REEF","13.11.2023",99.0,false,null],
-  ["Корректор","CATRICE","Корректор Under Eye Brightener","Light Rose","18.11.2023",354.0,false,null],
-  ["Карандаш для глаз","ESSENCE","Карандаш для глаз INNER EYE BRIGHTENING PEN","1, бежевый","18.11.2023",90.0,false,null],
-  ["Карандаш для глаз","ESSENCE","Автоматический карандаш для глаз LONG LASTING eye pencil","38, лавандовый","18.11.2023",169.0,false,null],
-  ["Жидкие тени","VIVIENNE SABO","Сияющие жидкие тени NOCTURNE","2","16.12.2023",615.15,false,null],
-  ["Тени","REVOLUTION PRO","Палетка теней PRO ULTIMATE EYE LOOK PALETTE SO JADED","Зеленая гамма","16.12.2023",1364.06,false,null],
-  ["Жидкая подводка для глаз","ARTDECO","Жидкая подводка для глаз High Precision","Черный","18.12.2023",1924.0,false,null],
-  ["Тени","SODA","Тени для век UNDER THE SEA EYESHADOW PALETTE #exploretheocean, 15 цветов","","01.01.2024",0.0,false,null],
-  ["Жидкие тени","LOTTIE","Матовые жидкие тени для век","Minty Fresh","21.01.2024",427.0,false,null],
-  ["Помада","VIVIENNE SABO","Губная помада Nude Createur","5","08.02.2024",443.0,false,null],
-  ["Карандаш для губ","BELOR DESIGN","Карандаш для губ Automatic soft","205, малиновый","10.03.2024",155.99,false,null],
-  ["Жидкие тени","LOVE GENERATION","Матовые жидкие тени MATTE LIQUID EYESHADOW NIRVANA","06, сиреневый","28.03.2024",265.0,false,null],
-  ["Жидкие тени","LOVE GENERATION","Матовые жидкие тени MATTE LIQUID EYESHADOW NIRVANA","05, небесный","28.03.2024",265.0,false,null],
-  ["Тени","CHARME","MONO однушка","65, барвинок","28.03.2024",184.0,false,null],
-  ["Тени","CHARME","MONO однушка","59, ярко-синий","28.03.2024",184.0,false,null],
-  ["Тени","CHARME","MONO однушка","46, ультрамарин","28.03.2024",184.0,false,null],
-  ["Карандаш для губ","VIVIENNE SABO","Карандаш для губ Le Grand volume","02, теплый нюд","07.04.2024",381.77,false,null],
-  ["Тени","VIVIENNE SABO","Монотени для век Vivienne Sabo Cassiopee","120, темно-серый с серебряным глиттером","11.04.2024",199.0,false,null],
-  ["Карандаш для губ","VIVIENNE SABO","Карандаш для губ LEMON CITRON","02, пыльно-персиково-розовый","25.06.2024",248.9,false,null],
-  ["Карандаш для губ","VIVIENNE SABO","Карандаш для губ LEMON CITRON","01, пудрово-песочно-бежевый","25.06.2024",249.99,false,null],
-  ["Карандаш для глаз","LOVE GENERATION","Гелевый карандаш для глаз GEL EYE PENCIL COLOR BUNNY","04, голубой","09.07.2024",279.99,false,null],
-  ["Карандаш для глаз","LOVE GENERATION","Гелевый карандаш для глаз GEL EYE PENCIL COLOR BUNNY","03, зеленый","09.07.2024",279.99,false,null],
-  ["Карандаш для глаз","B.COLOUR","Гелевый карандаш для глаз GEL EYE PENCIL  B.COLOUR PROFESSIONAL","07, naughty plum","11.07.2024",385.79,false,null],
-  ["Карандаш для глаз","B.COLOUR","Гелевый карандаш для глаз GEL EYE PENCIL  B.COLOUR PROFESSIONAL","04, maya blue","11.07.2024",385.79,false,null],
-  ["Карандаш для глаз","B.COLOUR","Гелевый карандаш для глаз GEL EYE PENCIL  B.COLOUR PROFESSIONAL","03, jade green","11.07.2024",385.79,false,null],
-  ["Карандаш для глаз","LOVE GENERATION","Гелевый карандаш для глаз GEL EYE PENCIL COLOR BUNNY","07, фиолетовый","15.07.2024",358.0,false,null],
-  ["Карандаш для глаз","LOVE GENERATION","Гелевый карандаш для глаз GEL EYE PENCIL COLOR BUNNY","06, лазурный","15.07.2024",358.0,false,null],
-  ["Карандаш для глаз","LOVE GENERATION","Гелевый карандаш для глаз GEL EYE PENCIL COLOR BUNNY","08, оранжевый","15.07.2024",358.0,false,null],
-  ["Блеск для губ","SHIK","Блеск для губ SHIK INTENSE","08, brown sugar","17.07.2024",750.6,false,null],
-  ["Помада","CLIO","Увлажняющий тинт для губ PURE BLUR TINT","01, apple with a tint of red","17.07.2024",868.0,false,null],
-  ["Помада","CLIO","Тинт для губ DEWY BLUR","01, toasty cherry","17.07.2024",1080.0,false,null],
-  ["Карандаш для глаз","BELOR DESIGN","Механический карандаш для глаз Automatic soft eyepencil","302, brown","21.07.2024",179.99,false,null],
-  ["Пудра","LUMENE","Корректирующая пудра Lumene Nordic Chic CC Color Correcting Powder","04, темно-бежевый; зеленый","02.08.2024",859.0,false,null],
-  ["База под тени","UNICORNS APPROVE","Праймер для глиттера и пигмента UNICORNS APPROVE","Прозрачный","20.08.2024",529.0,false,null],
-  ["Тональное средство","ESTÉE LAUDER","Устойчивый тональный флюид ESTÉE LAUDER Double Wear Sheer Long-Wear Makeup","3N1, ivory beige","12.09.2024",4359.55,false,null],
-  ["Блеск для губ","CLIO","Тинт CLIO Crystal","07, modern coral beige","12.09.2024",1062.33,false,null],
-  ["Помада","VIVIENNE SABO","Тинт для губ VIVIENNE SABO Tititint","06, винный","25.09.2024",238.85,false,null],
-  ["Помада","CLIO","Увлажняющий тинт для губ PURE BLUR TINT","03, downy and pink peach","30.09.2024",620.0,false,null],
-  ["Помада","CLIO","Увлажняющий тинт для губ PURE BLUR TINT","04, tender and juicy cherry","30.09.2024",620.0,false,null],
-  ["Помада","CLIO","Увлажняющий тинт для губ PURE BLUR TINT","07, sugary sweet strawberry","30.09.2024",620.0,false,null],
-  ["Карандаш для глаз","ARAIVE MAKEUP","Карандаш для глаз ARIVE MAKEUP Glimmerverse Fairy Wand Multichrome Eye Pencil с гелевой текстурой и эффектом многомерного мультихромного сияния","01, swamp rose","30.09.2024",558.0,false,null],
-  ["Карандаш для глаз","ARAIVE MAKEUP","Карандаш для глаз ARIVE MAKEUP Glimmerverse Fairy Wand Multichrome Eye Pencil с гелевой текстурой и эффектом многомерного мультихромного сияния","03, frog princess","30.09.2024",558.0,false,null],
-  ["Блеск для губ","CLIO","Тинт CLIO Crystal","03, blushed peach","04.10.2024",1091.7,false,null],
-  ["Блеск для губ","CLIO","Тинт CLIO Crystal","009, bare peach","04.10.2024",1116.9,false,null],
-  ["Карандаш для глаз","ARAIVE MAKEUP","Карандаш для глаз ARIVE MAKEUP Glimmerverse Fairy Wand Multichrome Eye Pencil с гелевой текстурой и эффектом многомерного мультихромного сияния","05, purple rush","08.10.2024",558.0,false,null],
-  ["Блеск для губ","CLIO","Тинт CLIO Crystal","011, mellow fig","22.10.2024",1309.0,false,null],
-  ["Блеск для губ","CLIO","Тинт CLIO Crystal","04, pale plum","22.10.2024",1377.0,false,null],
-  ["Блеск для губ","CLIO","Тинт CLIO Crystal","010, baby berry","27.10.2024",1155.0,false,null],
-  ["Блеск для губ","CLIO","Тинт CLIO Crystal","012, fiery rose","28.10.2024",1155.0,false,null],
-  ["Помада","CLIO","Увлажняющий тинт для губ PURE BLUR TINT","02, orange under the sun","20.11.2024",617.99,false,null],
-  ["Помада","CLIO","Увлажняющий тинт для губ PURE BLUR TINT","05, soft and delicate","20.11.2024",617.99,false,null],
-  ["Помада","CLIO","Легкий тинт CLIO Chiffon blur tint","09, namsan peach pink","20.11.2024",978.53,false,null],
-  ["Карандаш для губ","SHIK","Карандаш для губ SHIK Lip pencil","verona","20.11.2024",664.78,false,null],
-  ["Блеск для губ","CLIO","Тинт CLIO Crystal","15, grooming peach opal","22.11.2024",1165.0,false,null],
-  ["Блеск для губ","CLIO","Тинт CLIO Crystal","05, fresh cherry","22.11.2024",1176.0,false,null],
-  ["Блеск для губ","CLIO","Тинт CLIO Crystal","08, gentle cinnamon","22.11.2024",1176.0,false,null],
-  ["Блеск для губ","CLIO","Тинт CLIO Crystal","13, koshort pearl coral","22.11.2024",1176.0,false,null],
-  ["Помада","CLIO","Тинт Clio Hug Blur Tint","01, My Little Berry","22.11.2024",1077.0,false,null],
-  ["Блеск для губ","CLIO","Тинт CLIO Crystal","06, daily mauve","22.11.2024",1187.0,false,null],
-  ["Блеск для губ","CLIO","Тинт CLIO Crystal","14, heart pink diamond","22.11.2024",1187.0,false,null],
-  ["Помада","SHIK","Помада жидкая матовая SHIK  Matte lipstick","12, truffle холодный кофейный","25.11.2024",544.04,false,null],
-  ["Помада","SHIK","Помада жидкая матовая SHIK  Matte lipstick","04, caramel","25.11.2024",544.04,false,null],
-  ["Карандаш для губ","SHIK","Карандаш для губ SHIK Lip pencil","garda","25.11.2024",458.88,false,null],
-  ["Помада","CLIO","Увлажняющий тинт для губ PURE BLUR TINT","08, ripe and ruddy pomegranate","05.12.2024",1774.0,false,null],
-  ["Тени","REVOLUTION PRO","Палетка теней PRO ULTIMATE EYE LOOK PALETTE OCEAN TREASURE","синяя гамма","18.12.2024",882.0,false,null],
-  ["Тени","REVOLUTION PRO","Палетка теней PRO ULTIMATE EYE LOOK PALETTE HIDDEN JEWELS","фиолетовая гамма","18.12.2024",1176.0,false,null],
-  ["Помада","CLIO","Увлажняющий тинт для губ PURE BLUR TINT","06, fresh and greenish fig","14.01.2025",3419.0,false,null],
-  ["Лак для ногтей","GOLDEN ROSE","GOLDEN ROSE Wow! Лак для ногтей","16, розовый","16.01.2025",109.99,false,null],
-  ["Лак для ногтей","Френчи","Френчи, Умная эмаль, Гель для утолщения ногтей","Бесцветный","16.01.2025",228.99,false,null],
-  ["Карандаш/Маркер для бровей","FUNKY MONKEY","FUNKY MONKEY Маркер для бровей стойкий Brow Marker","03","16.01.2025",628.99,false,null],
-  ["Лак для ногтей","YLLOZURE","YLLOZURE Лак для ногтей Brilliant","05, золотые блестки","20.01.2025",255.0,false,null],
-  ["Лак для ногтей","STELLARY","STELLARY, Лак для ногтей","45","21.01.2025",195.0,false,null],
-  ["Карандаш для глаз","BEAUTY BOMB","BEAUTY BOMB, Карандаш для глаз геkевый Laser Blade","01, розовый","21.01.2025",359.0,false,null],
-  ["Карандаш для глаз","BEAUTY BOMB","BEAUTY BOMB, Карандаш для глаз дуохром UFO Conspiracy","03","21.01.2025",599.0,false,null],
-  ["Тени","ARAIVE MAKEUP","Монотени для век ARAIVE MAKEUP Alphabet Eyeshadow","Y","01.03.2025",522.74,false,null],
-  ["Тени","ARAIVE MAKEUP","Монотени для век ARAIVE MAKEUP Alphabet Eyeshadow","T","01.03.2025",522.74,false,null],
-  ["Тени","ARAIVE MAKEUP","Монотени для век ARAIVE MAKEUP Alphabet Eyeshadow","Q","01.03.2025",522.74,false,null],
-  ["Тени","CLIONADH","Монотени CLIONADH Glitter Multichrome Eyeshadow","glazed","03.03.2025",730.0,false,null],
-  ["Тени","CLIONADH","Монотени CLIONADH Dimensional Lite Multichrome Eyeshadow","amalgam","03.03.2025",730.0,false,null],
-  ["Тени","3INA","Тени-стик 3INA The 24H Eye Stick","314, розовый с шимером","27.03.2025",757.0,false,null],
-  ["Румяна","B.COLOUR","Румяна B.COLOUR PROFESSIONAL муссовые","02, Just Peachy","28.03.2025",251.0,false,null],
-  ["Румяна","HOLIKA HOLIKA","Гелевые румяна Holika Holika Jelly Dough","03, Strawberry","01.04.2025",450.0,false,null],
-  ["Румяна","B.COLOUR","Румяна B.COLOUR PROFESSIONAL сухие","03, I'm shy","02.04.2025",330.0,false,null],
-  ["Румяна","B.COLOUR","Румяна B.COLOUR PROFESSIONAL муссовые","01, Ice Rose","02.04.2025",343.0,false,null],
-  ["Хайлайтер","B.COLOUR","Хайлайтер B.COLOUR PROFESSIONA","02, Milky Way","16.04.2025",289.0,false,null],
-  ["Тени","dope.","Пигмент-тени для век dope.","06 - Light Pink","17.04.2025",680.0,false,null],
-  ["Румяна","dope.","Румяна для лица dope.","PINKMINT","18.04.2025",1635.0,false,null],
-  ["Румяна","B.COLOUR","Румяна B.COLOUR PROFESSIONAL муссовые","03, Pink Galaxy (темно-розовый)","21.04.2025",171.0,false,null],
-  ["Тени","SHIK","Тени-спаркл Single Eyeshadow SHIK STUDIO","SUN, зеленый, фиолетовый, розовый","23.04.2025",413.0,false,null],
-  ["Тени","SHIK","Тени-спаркл Single Eyeshadow SHIK STUDIO","Mimosa, розово-лиловый оттенок","26.04.2025",450.0,false,null],
-  ["Тени","ARAIVE MAKEUP","Монотени для век ARAIVE MAKEUP Alphabet Eyeshadow","X","26.04.2025",568.0,false,null],
-  ["Тени","ARAIVE MAKEUP","Монотени для век ARAIVE MAKEUP Alphabet Eyeshadow","R","30.04.2025",557.0,false,null],
-  ["Тени","CLIONADH","Монотени CLIONADH Glitter Multichrome Eyeshadow","Etched","04.05.2025",1518.0,false,null],
-  ["Тени","CLIONADH","Монотени CLIONADH Glitter Multichrome Eyeshadow","Tracery","04.05.2025",1518.0,false,null],
-  ["Тени","CLIONADH","Монотени CLIONADH Jewelled Lite Multichrome Eyeshadow","Rosette Lite","04.05.2025",1649.0,false,null],
-  ["Тени","Tammy Tanuka","Рассыпчатые тени тон \"Смирение\", серия Хроматик","\"Смирение\", голубой-синий-фиолетовый-розовый-оранжевый","04.05.2025",550.0,false,null],
-  ["Тени","Tammy Tanuka","Палетка \"Импозантный Респектабельный Медведь (с небольшими причудами)\"","Медведь","04.05.2025",3249.0,false,null],
-  ["Румяна","HOLIKA HOLIKA","Гелевые румяна Holika Holika Jelly Dough","04, nuts","06.05.2025",432.0,false,null],
-  ["Тени","VIVIENNE SABO","Сияющие тени-пигмент для век Francafrique","01, холодный розовый металлик","21.05.2025",338.0,false,null],
-  ["Тени","LIMONI","Тени LIMONI Eye Shadow Prism","005","29.05.2025",597.0,false,null],
-  ["Румяна","DIVAGE","Румяна Divage Solo Compact","05, шампань","02.06.2025",298.99,false,null],
-  ["Карандаш для губ","B.COLOUR","Карандаш для губ  B.COLOUR PROFESSIONAL long-lasting","110","13.06.2025",319.0,false,null],
-  ["Карандаш для губ","B.COLOUR","Карандаш для губ  B.COLOUR PROFESSIONAL long-lasting","615","13.06.2025",348.0,false,null],
-  ["Румяна","CATRICE","Румяна Catrice","010, Dahlia Blossom","30.06.2025",373.0,false,null],
-  ["Румяна","SHIK","Запeченныe румянa SHIK Blush melange limited","01, сияющий персиковый","07.07.2025",1107.0,false,null],
-  ["Карандаш для губ","B.COLOUR","Карандаш для губ  B.COLOUR PROFESSIONAL long-lasting","107","09.07.2025",199.0,false,null],
-  ["Пудра","MAX FACTOR","Фиксирующая пудра Max Factor Miracle Veil","Полупрозрачная","24.07.2025",899.0,false,null],
-  ["Пудра","MAX FACTOR","Фиксирующая пудра Max Factor Miracle Veil","Полупрозрачная","24.07.2025",899.0,false,null],
-  ["Тени","CLIONADH","Монотени CLIONADH Earth Vibrant Multichrome Eyeshadow","Iron Gate","24.08.2025",1500.0,false,null],
-  ["Тени","CLIONADH","Монотени CLIONADH Earth Vibrant Multichrome Eyeshadow","Wall of ivy","24.08.2025",1500.0,false,null],
-  ["База под тени","Urban Decay","База под тени Urban Decay EYESHADOW PRIMER POTION original","Sheer nude","25.08.2025",1860.0,false,null],
-  ["Хайлайтер","Rare Beauty","Хайлайтер Rare Beauty POSITIVE LIGHT SILKY TOUCH","Enlighten","25.08.2025",2790.0,false,null],
-  ["Лак для ногтей","MASURA","Лак для ногтей MASURA Тысячу раз ДА","Светло-розовый лак с эффектом аврора (перелив из светло-зеленого и золотого в темный розовый через голубой)","07.09.2025",319.0,false,null],
-  ["Румяна","ARTDECO","Румяна ARTDECO Blusher","07, Salmon blush","19.10.2025",788.35,false,null],
-  ["Бронзер","CATRICE","Бронзер CATRICE sun lglow matt bronzing powder","35","08.02.2026",449.0,false,null],
-  ["Бронзер","CATRICE","Бронзер CATRICE sun lover glow","010","08.02.2026",553.0,false,null],
-  ["Бронзер","MAKEUP REVOLUTION","Бронзер MAKEUP REVOLUTION bronzer reloaded","Take a vacation","08.02.2026",504.0,false,null],
-  ["Консилер","ELIAN RUSSIA","Консилер ELIAN RUSSIA Vibrant Skin Concealer","02, Light","14.04.2026",639.99,false,null],
-  ["Консилер","ELIAN RUSSIA","Кремовые румяна ELIAN RUSSIA One Touch","https://vk.com/wall-236293845_81","14.04.2026",849.99,false,null],
-  ["Консилер","ART-VISAGE","Консилер ART-VISAGE Miracle Touch","102, натуральный бежевый","14.04.2026",368.0,false,null],
-  ["Контуринг","NINELLE","Контурирующий стик NINELLE Abramovskaya EL ASTRO","431, серо-коричневый","25.04.2026",664.51,false,null],
-  ["Пудра","HOLIKA HOLIKA","Пудра HOLIKA HOLIKA puri pore no sebum pact","Прозрачный","21.05.2026",735.0,false,null],
-  ["Тушь","HOLIKA HOLIKA","Термотушь HOLIKA HOLIKA holipop detailcara","01, черная","21.05.2026",545.0,false,null],
-  ["Хайлайтер","ECLIPSE beauty","Хайлайтер ECLIPSE beauty","04, Андромеда (розово-золотой)","25.05.2026",580.0,false,null],
-  ["Тональное средство","ESTÉE LAUDER","Тональный флюид Estee Lauder Futurist SkinTint Serum","2N1 Desert Beige","11.06.2026",5021.49,false,null],
-  ["Гель для бровей","DIVAGE","Тушь для бровей Brow Tint long-lasting","тон 02, темно-коричневый","21.06.2026",449.99,false,null],
-  ["Блеск для губ","DIVAGE","Пептидный Бальзам для губ Glow therapy","Тон 04 баблг","21.06.2026",329.99,false,null],
-  ["Блеск для губ","DIVAGE","Lip Rehab Balm Бальзам д/губ","Банан","21.06.2026",178.99,false,null],
-  ["Гель для бровей","VIVIENNE SABO","Гель для бровей FIXATEUR","прозрачный","21.06.2026",299.99,false,null],
-  ["Праймер","MAX FACTOR","Праймер для ресниц MAX FACTOR FALSE LASH EFFECT MAX OUT","blue","02.07.2026",729.0,false,null],
-  ["Фиксатор","CATRICE","Спрей - фиксатор макияжа  CATRICE Oil-Control Matt","Прозрачный","02.07.2026",553.0,false,null],
-  ["Блеск для губ","DIVAGE","Блеск для губ Divage Butter Gloss Liquid Lipstick","08, бургунди","07.07.2026",358.0,false,null],
-  ["Помада","BELOR DESIGN","Помада Belor Design SATIN COLORS","15, голливудский красный","17.07.2026",183.0,false,null],
-  ["Помада","3INA","Помада 3INA The Lipstick","249","17.07.2026",802.0,false,null],
-  ["Помада","3INA","Помада 3INA THE LONGWEAR LIPSTICK","250","17.07.2026",890.0,false,null],
-  ["Карандаш для губ","B.COLOUR","Карандаш для губ  B.COLOUR PROFESSIONAL long-lasting","205","17.07.2026",353.0,false,null],
-  ["Карандаш для губ","B.COLOUR","Карандаш для губ  B.COLOUR PROFESSIONAL long-lasting","210","17.07.2026",353.0,false,null],
-  ["Карандаш для губ","PARISA","Карандаш для губ Parisa Cosmetics Matte","706","22.07.2026",73.41,false,null],
-  ["Помада","CLINIQUE","Помада Clinique Longwear Lipstick","Punch pop","22.07.2026",1065.87,false,null],
-  ["Помада","CLINIQUE","Помада Clinique Longwear Lipstick","Cherry pop","26.07.2026",448.0,false,null],
-  ["Тональное средство","BOURJOIS","Тональный флюид Bourjois Healthy Mix Tinted Beautifier","001, светлый","30.07.2026",430.0,false,null],
-  ["Тональное средство","ART&FACT","Тональная сыворотка для лица матирующая для жирной и проблемной кожи ART&FACT","01, Светлый (для жирной и проблемной)","30.07.2026",562.0,false,null],
-  ["Карандаш для губ","ASTRA","Карандаш для губ стойкий матовый Astra Make-Up","36, Dark red","30.07.2026",240.0,false,null],
-  ["Лак для ногтей","YLLOZURE","Регенерирующий лак для ломких ногтей YLLOZURE Restorative Base for nails SOS","Бесцветный","27.08.2025",386.0,true,"18.07.2026"],
-  ["Гель для бровей","LUXVISAGE","Гель для бровей LUXVISAGE BROW LAMINATOR & EXTREME FIX 24h","Прозрачный","05.12.2025",191.0,true,"26.06.2026"],
-  ["Пудра","MAX FACTOR","Фиксирующая пудра Max Factor Miracle Veil","Полупрозрачная","28.06.2025",1100.0,true,"26.06.2026"],
-  ["Тональное средство","SHIK","Тональный крем SHIKSTUDIO perfect liquid foundation","1.5","09.01.2026",1127.0,true,"25.06.2026"],
-  ["Помада","LUXVISAGE","Помада-бальзам LUXVISAGE Mint Balm","105, Nude mood","27.10.2025",314.0,true,"24.06.2026"],
-  ["Фиксатор","CHA U KAO","Спрей - фиксатор макияжа HAZY","","18.05.2026",595.0,true,"24.06.2026"],
-  ["Блеск для губ","CLIO","Тинт CLIO Crystal","01, vintage apple","12.09.2024",1062.33,true,"29.05.2026"],
-  ["Тушь","DIVAGE","Термотушь Divage Ai Lash","Коричневый","28.02.2026",299.99,true,"21.05.2026"],
-  ["База под тени","NINELLE","База под тени NINELLE maravilla","Прозрачный","23.07.2025",534.91,true,"30.04.2026"],
-  ["Тональное средство","ARAIVE MAKEUP","Сияющий тональный крем ARIVE MAKEUP confy glow foundation","02OY","09.01.2026",746.45,true,"24.04.2026"],
-  ["Пудра","LUMENE","Корректирующая пудра Lumene Nordic Chic CC Color Correcting Powder","01, светло-бежевый; зеленый","29.07.2024",960.0,true,"23.04.2026"],
-  ["База под тени","LAMEL","База под тени для век Insta Eyeshadows base","Телесный","18.08.2023",354.58,true,"21.04.2026"],
-  ["Блеск для губ","CLIO","Тинт CLIO Crystal","02, summer apricot","13.10.2024",942.8,true,"14.04.2026"],
-  ["Жидкие тени","VIVIENNE SABO","Стойкие жидкие тени ARTISTE 24/7","1/мерцающий со светлыми глиттерами","12.12.2023",338.4,true,"08.04.2026"],
-  ["Жидкие тени","VIVIENNE SABO","Стойкие жидкие тени ARTISTE 24/7","04/бежевый, матовый","16.12.2023",360.42,true,"08.04.2026"],
-  ["Тональное средство","ERBORIAN","CC RED Корректирующий крем для лица","Зеленый","29.04.2025",845.0,true,"22.03.2026"],
-  ["Консилер","BELOR DESIGN","Жидкий консилер SOFT FOCUS","103, нейтральный","13.03.2024",245.0,true,"13.03.2026"],
-  ["Пудра","MANLY PRO","MAGIC VEIL Рассыпчатая матирующая минеральная пудра","Прозрачный","24.05.2023",1440.0,true,"04.03.2026"],
-  ["Тушь","DARLING","Термотушь DARLING* lash cocoon","02, коричневая","26.04.2025",833.0,true,"27.02.2026"],
-  ["Тональное средство","ESTÉE LAUDER","Тональный крем Estee Lauder Double Wear Stay-In-Place Makeup SPF10","1С1, cool bone","26.04.2025",2599.0,true,"14.01.2026"],
-  ["Гель для бровей","LUXVISAGE","Гель для бровей LUXVISAGE BROW LAMINATOR & EXTREME FIX 24h","Прозрачный","18.07.2025",250.0,true,"27.12.2025"],
-  ["Корректор","ESTRADE","Корректор SKIN SOLUTION","53, персиковый","25.06.2024",218.5,true,"26.12.2025"],
-  ["Румяна","SHIK","Кремовые румяна SHIK Perfect liquid blush","01","12.09.2024",666.42,true,null],
-  ["Тушь","HOLIKA HOLIKA","Влагостойкая удлиняющая тушь для ресниц с фибровыми волокнами Detailcara HOLIKA HOLIKA","черная","07.09.2025",488.0,true,null],
-  ["Тени","CLIO","Палетка теней для век CLIO Mono Mood","Mono Mood","20.11.2024",0.0,true,null],
-  ["Румяна","Rare Beauty","Румяна Rare Beauty SOFT PINCH LUMINOUS POWDER BLUSH","Happy","02.09.2025",2790.0,true,null],
-  ["Контуринг","SHIK","Скульптор SHIK Perfect liquid contour","04","12.09.2024",924.83,true,"17.12.2025"],
-  ["Блеск для губ","CLIO","Тинт CLIO Crystal","16, luxury mauve ruby","22.11.2024",1187.0,true,"31.10.2025"],
-  ["Блеск для губ","VIVIENNE SABO","Блеск для губ Tropique Gloss","9, Холодный бежевый с серебряными частицами","08.02.2024",231.0,true,"27.10.2025"],
-  ["Тональное средство","LIMONI","Тональный крем-кушон для лица с SPF 35, LIMONI Animal Princess","03, dark medium","03.10.2024",1836.0,true,"10.10.2025"],
-  ["Помада","CLIO","Увлажняющий тинт для губ PURE BLUR TINT","07, sugary sweet strawberry","17.07.2024",868.0,true,"10.10.2025"],
-  ["Лак для ногтей","YLLOZURE","YLLOZURE Лак реаниматор для поврежденных и расслаивающихся ногтей","Бесцветный","13.01.2025",475.0,true,"01.09.2025"],
-  ["Гель для бровей","LUXVISAGE","Гель для бровей LUXVISAGE BROW LAMINATOR & EXTREME FIX 24h","Прозрачный","24.02.2025",323.0,true,"29.08.2025"],
-  ["Помада","HOLIKA HOLIKA","Тинт для губ вельветовый HOLIKA HOLIKA Velvet Blanket Tint","01, cream rosy","25.09.2024",484.5,true,"14.08.2025"],
-  ["Карандаш для глаз","L'OREAL PARIS","Стойкий автоматический гелевый карандаш INFAILLIBLE GEL AUTO LINER","Изумрудный (зеленый)","11.04.2023",550.8,true,"12.08.2025"],
-  ["Тушь","CLIO","Подкручивающая тушь для ресниц SHARP, SO SIMPLE","01, черный","20.11.2024",536.84,true,"12.08.2025"],
-  ["Блеск для губ","Rom&Nd","Стойкий блеск для эффекта стеклянных губ Rom&Nd Glasting Color Gloss","04, Grapy Way","24.07.2024",1050.0,true,"24.07.2025"],
-  ["Помада","VIVIENNE SABO","Помада-бальзам для губ LEMON CITRON","02, пыльно-коричнево-розовый","25.06.2024",499.0,true,"11.07.2025"],
-  ["Тональное средство","GARNIER","GARNIER BB Крем матирующий ГИАЛУРОНОВЫЙ АЛОЭ-УХОД 5-В-1","Светло-бежевый","08.10.2023",500.0,true,"26.04.2025"],
-  ["Карандаш для глаз","LOVE GENERATION","Гелевый карандаш для глаз GEL EYE PENCIL COLOR BUNNY","10, желтый","15.07.2024",358.0,true,"25.03.2025"],
-  ["Гель для бровей","VIVIENNE SABO","Гель для бровей сверхсильной фиксации VIVIENNE SABO Fixateur superb","Прозрачный","16.09.2024",249.9,true,"21.03.2025"],
-  ["Тональное средство","CATRICE","Тональная сыворотка Nude Drop Tinted Serum Foundation","010N","12.12.2023",664.05,true,"07.03.2025"],
-  ["Помада","VIVIENNE SABO","Помада-бальзам для губ LEMON CITRON","01, нежно-розовый","25.06.2024",499.0,true,"28.02.2025"],
-  ["Праймер","SHIK","Крем-праймер FACE PRIMER SPF 15","Телесный","13.03.2024",855.36,true,"20.02.2025"],
-  ["Тушь","CLIO","Подкручивающая тушь для ресниц SHARP, SO SIMPLE","01, черный","17.07.2024",0.0,true,"14.02.2025"],
-  ["Жидкие тени","LOVE GENERATION","Матовые жидкие тени MATTE LIQUID EYESHADOW NIRVANA","04, розовый","09.07.2024",269.99,true,"06.02.2025"],
-  ["Тональное средство","ERBORIAN","СС крем для кожи вокруг глаз","Светлый","10.06.2024",430.0,true,"22.01.2025"],
-  ["Блеск для губ","VIVIENNE SABO","Блеск для губ Tropique Gloss","20, холодный ягодный","07.04.2024",232.6,true,"23.12.2024"],
-  ["Тональное средство","CLIO","Тональный кушон CLIO KILL COVER THE NEW FOUNWEAR CUSHION MINI👎","2, lingerie","30.09.2024",539.0,true,"05.11.2024"],
-  ["Помада","YVES ROCHER","Помада Yves Rocher ROUGE ELIXIR Матовая","05, Cказочная Клубника","01.01.2024",1370.0,true,"04.10.2024"],
-  ["Тушь","VIVIENNE SABO","Тушь для ресниц Cabaret Premiere","Черный","29.03.2023",349.0,true,"28.09.2024"],
-  ["Тональное средство","ERBORIAN","CC RED Корректирующий крем для лица","Зеленый","10.06.2024",430.0,true,"25.09.2024"],
-  ["Гель для бровей","ESSENCE","Гель для бровей и ресниц Essence","Прозрачный","18.11.2023",175.0,true,"15.09.2024"],
-  ["Жидкая подводка для глаз","SODA","Жидкая подводка #showyourself","SNOW FLAKE","16.11.2023",199.0,true,"22.08.2024"],
-  ["Тональное средство","ERBORIAN","СС крем Совершенное сияние","Светлый","10.06.2024",430.0,true,"06.08.2024"],
-  ["Праймер","ERBORIAN","PP праймер для лица","Розовый","10.06.2024",0.0,true,null],
-  ["Жидкая подводка для глаз","SODA","Жидкая подводка #showyourself","GOLDEN CROCUS","13.11.2023",199.0,true,null],
-  ["Карандаш для глаз","L'OREAL PARIS","Стойкий автоматический гелевый карандаш INFAILLIBLE GEL AUTO LINER","Черный","11.04.2023",550.8,true,null],
-  ["Гель для бровей","VIVIENNE SABO","Гель для бровей VIVIENNE SABO FIXATEUR","Прозрачный","18.02.2023",167.05,true,null],
-  ["Тушь","VIVIENNE SABO","Влагостойкая тушь VIVIENNE SABO CABARET LATEX","Черный","18.02.2023",295.35,true,null],
-  ["Праймер","PUPA","Матирующий праймер PRIME ME","Телесный","18.02.2023",1742.4,true,null],
-  ["Жидкая подводка для глаз","VIVIENNE SABO","Подводка-фломастер для глаз VIVIENNE SABO CABARET PREMIERE","Коричневый","18.02.2023",359.0,true,null],
-  ["База под тени","ARTDECO","Основа под тени нейтрального цвета Eye Shadow Base","Телесный","22.07.2022",622.0,true,null]
-];
+const COS_RAW = [];
 // Skincare: [section, cat, brand, name, buyDate, price, finished, endDate]
-const SK_RAW = [
-  ["Уход за лицом","Пенка для умывания","EAU THERMALE AVENE","Крем для умывания EAU THERMALE AVENE Cleanance Hydra","22.07.2026",616.69,false,null],
-  ["Уход за лицом","Патчи от прыщей","ELIZAVECCA","Патчи ElizaveccaWitch Piggy Hell-Pore Blemish Spot Patch","17.07.2026",297.0,false,null],
-  ["Уход за лицом","Гидрофильное масло","BEAUTY OF JOSEON","Гидрофильный бальза  BEAUTY OF JOSEON Radiance Cleansing Balm","12.07.2026",1425.13,false,null],
-  ["Уход за лицом","Крем для лица","ART&FACT","Увлажняющий анти-акне крем для лица с азелоглицином ART&FACT","10.07.2026",634.0,false,null],
-  ["Уход за лицом","Спрей/Мист для лица","8.1.8 BEAUTY FORMULA","Термальная вода 8.1.8 BEAUTY FORMULA b.thermal","02.07.2026",504.0,false,null],
-  ["Уход за лицом","Крем для лица","ART&FACT","Увлажняющий и матирующий крем для лица ART&FACT. с галактомисисом 7%, ниацинамидом 2% и экстрактом зеленого чая 3%","02.07.2026",533.0,false,null],
-  ["Уход за лицом","Сыворотка для лица","COSRX","Сыворотка COSRX The Alpha-Arbutin","11.06.2026",3088.62,false,null],
-  ["Уход за лицом","Тоник","ART&FACT","Лосьон ART&FACT chamomilla recutita flower extract 3%","21.05.2026",611.0,false,null],
-  ["Уход за лицом","Сыворотка для лица","ART&FACT","Сыворотка ART&FACT Niacinamide 10% + zinc 1%","18.05.2026",480.0,false,null],
-  ["Уход за лицом","Гель для умывания","ART&FACT","Очищающий гель для умывания ART&FACT SOFT SURFACTANT COMPLEX + ALLANTOIN","18.05.2026",439.0,false,null],
-  ["Уход за лицом","Гидрофильное масло","Pyunkang Yul","Гидрофильный бальзам Pyunkang Yul Deep Clear Cleasing Balm","25.04.2026",1186.63,false,null],
-  ["Уход за лицом","Солнцезащитный крем","Neogen","Солнцезащитный крем Neogen DAY LIGHT PROTECTION AIRY SUNSCREEN","25.04.2026",1379.4,false,null],
-  ["Уход за лицом","Сыворотка для лица","ART&FACT","Сыворотка ART&FACT Niacinamide 10% + zinc 1%","19.04.2026",280.0,false,null],
-  ["Уход за лицом","Пилинг для лица","ART&FACT","Очищающие и осветляющие кислотные пилинг-пэды для лица ART&FACT. с гликолевой 10%, салициловой и молочной кислотами","04.04.2026",561.0,false,null],
-  ["Уход за лицом","Крем для кожи вокруг глаз","ARAVIA","Крем-сыворотка Aravia Laboratories Lifting Eye Caviar Serum","04.04.2026",294.0,false,null],
-  ["Уход за лицом","Маска для лица","ARAVIA","Хлорофилл-каротиновая маска Anti-Acne Active mask","17.01.2026",619.0,false,null],
-  ["Уход за лицом","Крем для лица","APLB","Увлажняющий крем APLB Hyaluronic Acid Ceramide HA B5 Cream","09.12.2025",1140.0,false,null],
-  ["Уход за лицом","Маска для губ","VIVIENNE SABO","Маска для губ VIVIENNE SABO Lavender Chocolate","27.11.2025",550.0,false,null],
-  ["Уход за лицом","Пилинг для лица","ARAVIA","Пилинг для проблемной кожи с комплексом кислот 18% Anti-Acne Peeling всесезонный","07.11.2025",451.0,false,null],
-  ["Уход за лицом","Солнцезащитный крем","HOLIKA HOLIKA","Солнцезащитный крем HOLIKA HOLIKA Aloe Waterproof SPF 50+","11.06.2025",1719.0,false,null],
-  ["Уход за лицом","Крем для лица","ART&FACT","Увлажняющий и матирующий крем для лица ART&FACT. с галактомисисом 7%, ниацинамидом 2% и экстрактом зеленого чая 3%","13.04.2026",565.0,true,null],
-  ["Уход за лицом","Крем для лица","ART&FACT","Корректирующий крем-актив для лица ART&FACT AZELAIC ACID 15%","18.05.2026",390.0,true,null],
-  ["Уход за лицом","Тоник","ART&FACT","Тоник для лица ART&FACT. отшелушивающий, матирующий, сужающий поры с серой, кукурузным крахмалом и комплексом экстрактов","04.04.2026",569.0,true,null],
-  ["Уход за лицом","Бальзам для губ","LUXVISAGE","Бальзам-тинт для губ LUXVISAGE Tint & care pH formula","01.11.2025",146.0,true,"01.07.2026"],
-  ["Уход за лицом","Тоник","ART&FACT","Матирующий и осветляющий тоник ART&FACT. для ухода за кожей лица с галактомисисом 2% для сужения пор","04.04.2026",588.0,true,"07.06.2026"],
-  ["Уход за лицом","Гидрофильное масло","ARAVIA","Гидрофильное масло ARAVIA Professional Pure Balance Cleansing Oil","24.03.2026",645.0,true,"17.06.2026"],
-  ["Уход за лицом","Гель для умывания","ARAVIA","Гель очищающий для жирной и проблемной кожи Anti-Acne Gel Cleanser","08.02.2026",367.0,true,"08.06.2026"],
-  ["Уход за лицом","Сыворотка для лица","ART&FACT","Сыворотка ART&FACT Niacinamide 10% + zinc 1%","19.04.2026",280.0,true,"24.05.2026"],
-  ["Уход за лицом","Солнцезащитный крем","UIQ","Увлажняющий санскрин UIQ Biome Remedy Watery Sun Cream SPF50+ PA++++","26.02.2025",2421.0,true,"18.05.2026"],
-  ["Уход за лицом","Бальзам для губ","ARAVIA","Восстанавливающий бальзам для губ ARAVIA Laboratories","26.11.2025",206.0,true,"30.04.2026"],
-  ["Уход за лицом","Крем для лица","REVOLUTION SKINCARE","Дневной крем Revolution Skincare SPF30 Oil Control Moisturiser Protecting Boost","05.12.2025",594.0,true,"30.04.2026"],
-  ["Уход за лицом","Сыворотка для лица","ARAVIA","Сыворотка для лица ARAVIA PROFESSIONAL Niacinamide Serum 10%","23.01.2026",756.0,true,"30.04.2026"],
-  ["Уход за лицом","Тоник","ARAVIA","Тоник ARAVIA PROFESSIONAL Black Head Off","17.01.2026",451.0,true,"11.04.2026"],
-  ["Уход за лицом","Тоник","ARAVIA","Тоник балансирующий для сужения пор для жирной и проблемной кожи Pore-Balance Toner","25.09.2025",273.0,true,null],
-  ["Уход за лицом","Крем для кожи вокруг глаз","L'ORÉAL PARIS","Восполняющий крем вокруг глаз HYALURON EXPERT","27.10.2025",314.0,true,"06.04.2026"],
-  ["Уход за лицом","Гель для умывания","ARAVIA","Гель очищающий для жирной и проблемной кожи Anti-Acne Gel Cleanser","31.08.2025",461.0,true,null],
-  ["Уход за лицом","Маска для лица","ARAVIA","Рассасывающая маска с поросуживающим эффектом Post-Acne Balance Mask","17.03.2025",756.0,true,null],
-  ["Уход за лицом","Крем для лица","REVOLUTION SKINCARE","Дневной крем Revolution Skincare SPF30 Oil Control Moisturiser Protecting Boost","28.11.2025",587.0,true,null],
-  ["Уход за лицом","Гидрофильное масло","THE U","Гидрофильный бальзам THE U tochilka","17.01.2026",936.0,true,"23.03.2026"],
-  ["Уход за лицом","Пенка для умывания","THE U","Пенка для умывания THE U Barrier bubble","17.01.2026",414.0,true,null],
-  ["Уход за лицом","Гидрофильное масло","THE U","Гидрофильный бальзам THE U tochilka","22.12.2025",1270.0,true,"14.02.2026"],
-  ["Уход за лицом","Сыворотка для лица","ARAVIA","Себорегулирующая сыворотка ARAVIA Laboratories SEBO RENEWAL SERUM","28.11.2025",267.0,true,"01.02.2026"],
-  ["Уход за лицом","Гидрофильное масло","ARAVIA","Гидрофильное масло ARAVIA Professional Pure Balance Cleansing Oil","25.09.2025",743.0,true,"12.01.2026"],
-  ["Уход за лицом","Крем для лица","REVOLUTION SKINCARE","Дневной крем Revolution Skincare SPF30 Oil Control Moisturiser Protecting Boost","13.04.2025",544.0,true,"06.12.2025"],
-  ["Уход за лицом","Сыворотка для лица","ARAVIA","Сыворотка для лица ARAVIA PROFESSIONAL Niacinamide Serum 10%","18.07.2025",832.0,true,"05.12.2025"],
-  ["Уход за лицом","Гель-корректор","Yves Rocher","Гель-Корректор SOS Точечного Действия - Для кожи, склонной к несовершенствам SEBO PURE VEGETAL","27.06.2024",532.0,true,"04.12.2025"],
-  ["Уход за лицом","Крем для лица","Organic Kitchen","Ночной крем Organic Kitchen \"Time for wine\"","01.03.2025",0.0,true,"03.12.2025"],
-  ["Уход за лицом","Бальзам для губ","ESSENCE","Бальзам для губ peppermint GLOW","15.07.2024",136.0,true,"01.12.2025"],
-  ["Уход за лицом","Пилинг для лица","ARAVIA","Пилинг для проблемной кожи с комплексом кислот 18% Anti-Acne Peeling всесезонный","06.06.2024",636.0,true,"26.10.2025"],
-  ["Уход за лицом","Крем для кожи вокруг глаз","ARAVIA","Омолаживающий крем для век ARAVIA Anti-age eye cream","28.04.2025",677.0,true,"31.10.2025"],
-  ["Уход за лицом","Матирующие салфетки","VIVIENNE SABO","VIVIENNE SABO Papiers Matifiants","30.04.2025",158.0,true,"31.10.2025"],
-  ["Уход за лицом","Тоник","ARAVIA","Тоник ARAVIA PROFESSIONAL Black Head Off","18.07.2025",464.0,true,"27.10.2025"],
-  ["Уход за лицом","Гидрофильное масло","ARAVIA","Гидрофильное масло ARAVIA Professional Pure Balance Cleansing Oil","26.04.2025",712.0,true,"16.10.2025"],
-  ["Уход за лицом","Крем для лица","REVOLUTION SKINCARE","Дневной крем Revolution Skincare SPF30 Oil Control Moisturiser Protecting Boost","21.03.2025",699.0,true,"01.10.2025"],
-  ["Уход за лицом","Гель для умывания","ARAVIA","Гель очищающий для жирной и проблемной кожи Anti-Acne Gel Cleanser","13.04.2025",559.23,true,"03.09.2025"],
-  ["Уход за лицом","Сыворотка для лица","L'ORÉAL PARIS","Сыворотка L'OREAL PARIS Bright reveal","10.06.2025",960.0,true,"28.08.2025"],
-  ["Уход за лицом","Крем для лица","НАНОЦЕТРА","Крем регенерирующий НАНОЦЕТРА","01.03.2025",0.0,true,"19.08.2025"],
-  ["Уход за лицом","Тоник","ARAVIA","Тоник балансирующий для сужения пор для жирной и проблемной кожи Pore-Balance Toner","13.04.2025",506.77,true,"31.07.2025"],
-  ["Уход за лицом","Гель для лица","HOLIKA HOLIKA","Универсальный несмываемый гель Aloe 99% Soothing","11.06.2025",0.0,true,"27.06.2025"],
-  ["Уход за лицом","Сыворотка для лица","REVOLUTION SKINCARE","Сыворотка для проблемной кожи Revolution Skincare 10% Niacinamide + 1% Zinc","20.03.2025",784.0,true,null],
-  ["Уход за лицом","Крем для лица","REVOLUTION SKINCARE","Дневной крем Revolution Skincare SPF30 Oil Control Moisturiser Protecting Boost","24.02.2025",1288.0,true,null],
-  ["Уход за лицом","Сыворотка для лица","The Ordinary","Сыворотка для проблемной кожи The Ordinary Niacinamide 10% + Zinc 1%","26.02.2025",1410.0,true,null],
-  ["Уход за лицом","Гидрофильное масло","ARAVIA","Гидрофильное масло для жирной и комбинированной кожи ARAVIA PROFESSIONAL Pure Balance Cleansing Oil","08.02.2025",688.0,true,null],
-  ["Уход за лицом","Тоник","ARAVIA","Успокаивающий тоник для жирной и проблемной кожи Anti-Acne Tonic","08.02.2025",760.0,true,null],
-  ["Уход за лицом","Сыворотка для лица","L'ORÉAL PARIS","Сыворотка L'OREAL PARIS Bright reveal","26.04.2025",976.0,true,null],
-  ["Уход за лицом","Маска для лица","ARAVIA","Рассасывающая маска с поросуживающим эффектом Post-Acne Balance Mask","06.06.2024",344.0,true,null],
-  ["Уход за лицом","Гель для умывания","Yves Rocher","Ультраосвежающий Гель для Умывания с Микроводорослями Pure Algue","18.11.2024",1230.0,true,null],
-  ["Уход за лицом","Сыворотка для лица","THINKCO","Сыворотка с ниацинамидом THINKCO MOISTURE VITAMIN NMF AMPOULE","06.12.2024",1207.8,true,"06.03.2025"],
-  ["Уход за лицом","Крем для лица","Yves Rocher","Крем-гель Hydra Vegetal для нормальной и комбинированной кожи","18.11.2024",1520.0,true,"04.03.2025"],
-  ["Уход за лицом","Крем для лица","REVOLUTION SKINCARE","Дневной крем Revolution Skincare SPF30 Oil Control Moisturiser Protecting Boost","28.03.2024",1100.0,true,"28.02.2025"],
-  ["Уход за лицом","Мицелярная вода","Yves Rocher","Мицеллярная Вода для Снятия Макияжа 2 в 1 с Микроводорослями","18.11.2024",0.0,true,"14.02.2025"],
-  ["Уход за лицом","Тоник","ARAVIA","Успокаивающий тоник для жирной и проблемной кожи Anti-Acne Tonic","06.11.2024",767.0,true,"09.02.2025"],
-  ["Уход за лицом","Солнцезащитный крем","Celimax","Себорегулирующий лёгкий солнцезащитный крем Celimax Oil Control Light Sunscreen SPF50+PA++++","07.06.2024",1445.0,true,"21.01.2025"],
-  ["Уход за лицом","Мицелярная вода","GARNIER","Мицеллярная вода для снятия макияжа, очищения кожи и матирующего эффекта, для чувствительной жирной и комбинированной кожи \"Чистая Кожа\" Skin Naturals","29.07.2024",358.0,true,null],
-  ["Уход за лицом","Сыворотка для лица","THINKCO","Сыворотка с ниацинамидом THINKCO Niacinamide AMPOULE","12.09.2024",986.72,true,"13.12.2024"],
-  ["Уход за лицом","Крем для лица","Emaj","Крем для лица Emaj Skin Cream with Pomegranate","01.01.2024",0.0,true,"07.12.2024"],
-  ["Уход за лицом","Пенка для умывания","CONSLY","Пенка для умывания отшелушивающая с AHA, BHA, PHA кислотами CONSLY Clean&Exfoliate","01.04.2024",357.0,true,"24.11.2024"],
-  ["Уход за лицом","Тоник","ARAVIA","Успокаивающий тоник для жирной и проблемной кожи Anti-Acne Tonic","06.06.2024",1058.0,true,"06.11.2024"],
-  ["Уход за лицом","Крем для лица","CHRISTINA","Крем для лица ELASTINCOLLAGEN PLACENTAL ENZYME","13.03.2024",2547.0,true,"19.10.2024"],
-  ["Уход за лицом","Бальзам для губ","ESSENCE","Бальзам для губ peppermint GLOW","28.03.2024",136.0,true,"08.10.2024"],
-  ["Уход за лицом","Гель для умывания","Yves Rocher","Ультраосвежающий Гель для Умывания с Микроводорослями Pure Algue","27.06.2024",511.0,true,"05.10.2024"],
-  ["Уход за лицом","Сыворотка для лица","The Ordinary","Сыворотка для проблемной кожи The Ordinary Niacinamide 10% + Zinc 1%","24.07.2024",1485.0,true,"31.08.2024"],
-  ["Уход за лицом","Масло для губ","VIVIENNE SABO","Масло для губ VIVIENNE SABO Sirop de Fruits","07.04.2024",334.64,true,"09.08.2024"],
-  ["Уход за лицом","Бальзам для губ","ESSENCE","Бальзам для губ peppermint GLOW","15.07.2024",136.0,true,null],
-  ["Уход за лицом","Крем для лица","ERBORIAN","SKIN HERO крем для лица","10.06.2024",0.0,true,null],
-  ["Уход за лицом","Салфетки для снятия макияжа","FARM STAY","Очищающие увлажняющие салфетки ALOE","28.03.2024",182.0,true,null],
-  ["Уход за лицом","Матирующие салфетки","ESSENCE","ALL ABOUT MATT! OIL CONTROL PAPER","16.02.2024",170.3,true,null],
-  ["Уход за лицом","Эссенция для лица","HYGGEE","ONE STEP FACIAL ESSENCE FRESH","16.02.2024",1355.69,true,"22.07.2024"],
-  ["Уход за лицом","Мицелярная вода","GARNIER","Мицеллярная вода для снятия макияжа, очищения кожи и матирующего эффекта, для чувствительной жирной и комбинированной кожи \"Чистая Кожа\" Skin Naturals","10.02.2024",433.0,true,null],
-  ["Уход за лицом","Гель для лица","L'ORÉAL PARIS","Гель-концентрат HYALURON эксперт","18.01.2024",514.0,true,null],
-  ["Уход за лицом","Маска для лица","UNICORNS APPROVE","Тканевая маска для лица с экстрактом граната \"восстанавливающая и увлажняющая\"","18.01.2024",0.0,true,null],
-  ["Уход за лицом","Бальзам для губ","ESSENCE","Бальзам для губ peppermint GLOW","12.01.2024",136.0,true,null],
-  ["Уход за лицом","Крем для лица","REVOLUTION SKINCARE","Дневной крем Revolution Skincare SPF30 Oil Control Moisturiser Protecting Boost","12.01.2024",1693.0,true,null],
-  ["Уход за лицом","Тоник","PAYOT","Nue Тоник для сияния кожи (Сменный блок)","12.12.2023",1170.0,true,null],
-  ["Уход за лицом","Бальзам для губ","UNICORNS APPROVE","Бальзам-тинт для губ с алое вера","11.11.2023",149.0,true,null],
-  ["Уход за лицом","Крем для лица","REVOLUTION SKINCARE","Дневной крем Revolution Skincare SPF30 Oil Control Moisturiser Protecting Boost","07.11.2023",805.0,true,null],
-  ["Уход за лицом","Масло для губ","ESSENCE","Масло для губ и щек electric GLOW colour changing lip & cheek oil","25.10.2023",293.55,true,null],
-  ["Уход за лицом","Бальзам для губ","ESSENCE","Бальзам для губ peppermint GLOW","25.10.2023",215.65,true,null],
-  ["Уход за лицом","Мицелярная вода","PAYOT","Nue Вода мицеллярная очищающая для снятия макияжа","22.09.2023",1017.0,true,null],
-  ["Уход за лицом","Мицелярная вода","PAYOT","Nue Вода мицеллярная очищающая для снятия макияжа (Сменный блок)","22.09.2023",619.0,true,null],
-  ["Уход за лицом","Эссенция для лица","PAYOT","MY PAYOT PEELING ECLAT отшелушивающая эссенция с экстрактом апельсина","21.09.2023",1010.0,true,null],
-  ["Уход за лицом","Тоник","PAYOT","Nue Тоник для сияния кожи (Сменный блок)","28.09.2023",700.0,true,null],
-  ["Уход за лицом","Бальзам для губ","ESSENCE","Бальзам для губ peppermint GLOW","28.09.2023",215.0,true,null],
-  ["Уход за лицом","Пенка для умывания","LUMENE","LUMENE KIRKAS RADIANCE BOOSTING CLEANSING FOAM","15.08.2023",464.0,true,null],
-  ["Уход за лицом","Крем для лица","REVOLUTION SKINCARE","Дневной крем Revolution Skincare SPF30 Oil Control Moisturiser Protecting Boost","15.08.2023",1347.0,true,null],
-  ["Уход за лицом","Гидрофильное масло","CHOCOLATTE","Гидрофильное масло-бальзам ЖЕЛЕ ЛАЙМ-ИМБИРНОЕ","15.08.2023",353.0,true,null],
-  ["Уход за лицом","Сыворотка для лица","FARM STAY","Сыворотка для лица COLLAGEN & HYALURONIC ACID ALL-IN-ONE AMPOULE","03.06.2023",659.0,true,null],
-  ["Уход за лицом","Крем для кожи вокруг глаз","L'ORÉAL PARIS","Восполняющий крем вокруг глаз HYALURON EXPERT","14.04.2023",679.89,true,null],
-  ["Уход за лицом","Тоник","PAYOT","Nue Тоник для сияния кожи","11.04.2023",1241.5,true,null],
-  ["Уход за лицом","Крем для кожи вокруг глаз","L'ORÉAL PARIS","Восполняющий крем вокруг глаз HYALURON EXPERT","21.03.2023",341.0,true,null],
-  ["Уход за лицом","Крем для лица","L'ORÉAL PARIS","Дневной увлажняющий крем DERMO-EXPERTISE","21.03.2023",316.0,true,null],
-  ["Уход за лицом","Гель для лица","L'ORÉAL PARIS","Гель-концентрат HYALURON эксперт","21.03.2023",342.0,true,null],
-  ["Уход за лицом","Спрей/Мист для лица","LUMENE","Увлажняющая и освежающая дымка для лица Lumene Arctic Spring Water Enriched Facial Mist Lähde","18.02.2023",800.0,true,null],
-  ["Уход за лицом","Пенка для умывания","LUMENE","LUMENE KIRKAS RADIANCE BOOSTING CLEANSING FOAM","18.02.2023",560.0,true,null],
-  ["Уход за лицом","Тоник","LUMENE","LUMENE KIRKAS RADIANCE BOOSTING TONER","18.02.2023",465.0,true,null],
-  ["Уход за лицом","Гель для лица","L'ORÉAL PARIS","Гель-концентрат HYALURON эксперт","18.02.2023",542.0,true,null],
-  ["Уход за лицом","Крем для лица","L'ORÉAL PARIS","Ночной увлажняющий крем-маска DERMO-EXPERTISE","18.02.2023",505.0,true,null],
-  ["Уход за телом","Пилинг для тела","EMI","Пенный экспресс-размягчитель для ног на основе мочевины EMI Exfoliating Foam Soft Feet","10.07.2026",522.0,false,null],
-  ["Уход за телом","Жидкость для снятия лака","SOLOMEYA","Жидкость для снятия лака без запаха Solomeya Odorless Moisture Nail Polish Remover","04.07.2026",336.0,false,null],
-  ["Уход за телом","Гель для душа","SOME BY MI","Гель для душа SOME BY MI AHA·BHA·PHA 30 DAYS MIRACLE ACNE CLEAR","02.07.2026",1529.0,false,null],
-  ["Уход за телом","Дезодорант","NIVEA","Антиперспирант NIVEA Fresh Cherry","08.06.2026",219.0,false,null],
-  ["Уход за телом","Гель для душа","GELTEK","Гель для душа с кислотами GELTEK","06.06.2026",418.0,false,null],
-  ["Уход за телом","Дезодорант","NIVEA","Антиперспирант NIVEA Жемчужная красота","20.05.2026",199.9,false,null],
-  ["Уход за телом","Дезодорант","NIVEA","Антиперспирант NIVEA Жемчужная красота","29.03.2026",209.9,false,null],
-  ["Уход за телом","Кондиционер","Yves Rocher","Кондиционер для волос YVES ROCHER Purity detoxifying","26.02.2026",669.0,false,null],
-  ["Уход за телом","Пилинг для тела","ARAVIA","Пилинг для кожи головы ARAVIA PROFESSIONSL SCALP AHA-PEEL","08.02.2026",530.0,false,null],
-  ["Уход за телом","Шампунь","ARAVIA","Шампунь против перхоти для жирной кожи головы ARAVIA PROFESSIONAL OILY DANDRUFF","08.02.2026",605.0,false,null],
-  ["Уход за телом","Молочко для тела","Yves Rocher","Молочко для тела YVES ROCHER Зимние ягоды","28.12.2025",701.0,false,null],
-  ["Уход за телом","Шампунь","ESTHETIC HOUSE","Шампунь Esthetic House CP-1 Ginger Purifyimg Shampoo","06.09.2025",380.0,false,null],
-  ["Уход за телом","Масло для кутикулы","EMI","Масло для кутикулы EMI Monarda extract CO2","31.08.2025",196.0,false,null],
-  ["Уход за телом","Гель для душа","Yves Rocher","Гель для душа YVES ROCHER Citron / Basilic","23.07.2025",407.7,false,null],
-  ["Уход за телом","Масло для кутикулы","SOLOMEYA","Масло для кутикулы CUTICLE OIL WITH NATURAL EXTRACT MONANDRA","30.04.2025",413.0,false,null],
-  ["Уход за телом","Крем для ног","ARAVIA","Крем для ног от трещин с маслом лаванды ARAVIA","17.03.2025",513.0,false,null],
-  ["Уход за телом","Дезодорант для ног","","Спрей Теймурова от запаха и пота","21.07.2024",129.99,false,null],
-  ["Уход за телом","Жидкость для снятия лака","SOLOMEYA","Жидкость для снятия лака SOLOMEYA Strengthening","24.07.2025",198.0,true,"10.07.2026"],
-  ["Уход за телом","Гель для душа","Yves Rocher","Гель для душа YVES ROCHER Гранат и магнолия","01.01.2026",0.0,true,null],
-  ["Уход за телом","Шампунь","ESTHETIC HOUSE","Шампунь Esthetic House CP-1 Head SPA Cool Mint Shampoo","31.08.2025",380.0,true,"18.04.2026"],
-  ["Уход за телом","Дезодорант","NIVEA","Антиперспирант NIVEA Жемчужная красота","09.01.2026",209.9,true,"03.04.2026"],
-  ["Уход за телом","Кондиционер","Yves Rocher","Кондиционер для волос YVES ROCHER Purity detoxifying","28.12.2025",608.0,true,"01.04.2026"],
-  ["Уход за телом","Молочко для тела","Yves Rocher","Молочко для тела YVES ROCHER манго и кориандр","23.07.2025",530.01,true,null],
-  ["Уход за телом","Шампунь","ALERANA","Шампунь ALERANA FOR OILY AND COMBINATION HAIR","12.05.2025",417.0,true,null],
-  ["Уход за телом","Дезодорант","NIVEA","Антиперспирант NIVEA Жемчужная красота","03.10.2025",188.99,true,"12.01.2026"],
-  ["Уход за телом","Шампунь","ESTHETIC HOUSE","Шампунь Esthetic House CP-1 Moisture Shampoo","06.09.2025",486.0,true,"11.01.2026"],
-  ["Уход за телом","Кондиционер","Yves Rocher","Кондиционер для волос YVES ROCHER Detox","23.07.2025",422.41,true,"31.12.2025"],
-  ["Уход за телом","Шампунь","ESTHETIC HOUSE","Шампунь Esthetic House CP-1 Bright Complex Intense Nourishing Shampoo","24.08.2025",432.0,true,"26.11.2025"],
-  ["Уход за телом","Крем для рук","Бархатные ручки","Крем для рук БАРХАТНЫЕ РУЧКИ комплексный","21.04.2024",98.8,true,"27.10.2025"],
-  ["Уход за телом","Гель для душа","BodyART","Гель для душа Bodyart","01.01.2025",0.0,true,"25.10.2025"],
-  ["Уход за телом","Шампунь","ESTHETIC HOUSE","Шампунь Esthetic House CP-1 3Seconds Hair Fill-Up Shampoo","31.08.2025",380.0,true,"18.10.2025"],
-  ["Уход за телом","Дезодорант","NIVEA","Антиперспирант NIVEA Жемчужная красота","09.07.2025",179.99,true,"17.10.2025"],
-  ["Уход за телом","Жидкость для снятия лака","Новая Заря","Новая Заря, Жидкость для снятия лака, мягкая","16.01.2025",119.99,true,null],
-  ["Уход за телом","Энзимная пудра","ARAVIA","Энзимная пудра против вросших волос ARAVIA PROFESSIONAL Ultra Enzyme","08.02.2025",563.0,true,null],
-  ["Уход за телом","Лосьон для тела","ARAVIA","Себорегулирующий тоник для кожи головы ARAVIA PROFESSIONAL Soothing Cool","24.07.2025",780.0,true,"16.10.2025"],
-  ["Уход за телом","Кондиционер","ALERANA","Бальзам для роста волос ALERANA PHARMA CARE Balsam – maximum volume formula","20.03.2025",341.0,true,"19.09.2025"],
-  ["Уход за телом","Масло для кутикулы","SOLOMEYA","Масло для кутикулы CUTICLE OIL WITH NATURAL EXTRACT MONANDRA","04.03.2024",298.4,true,"19.08.2025"],
-  ["Уход за телом","Гель для душа","","Гель для душа","01.01.2025",0.0,true,"14.07.2025"],
-  ["Уход за телом","Дезодорант","NIVEA","Антиперспирант NIVEA Жемчужная красота","24.02.2025",197.0,true,"28.07.2025"],
-  ["Уход за телом","Лосьон для тела","ARAVIA","ARAVIA Professional Лосьон очищаюсий с хлоргексидином","23.12.2024",226.0,true,null],
-  ["Уход за телом","Гель для душа","DOVE","Гель для душа Dove","01.01.2025",0.0,true,null],
-  ["Уход за телом","Скраб для тела","ORGANIC SHOP","Крем-пилинг для тела","18.11.2024",299.0,true,null],
-  ["Уход за телом","Крем для тела","","Бальзам для тела питательный Belle Jardin Soft Авокадо","02.03.2024",198.74,true,null],
-  ["Уход за телом","Шампунь","ALERANA","Шампунь против перхоти ALERANA anti-dandruff shampoo","08.02.2025",449.0,true,null],
-  ["Уход за телом","Шампунь","DOLCE MILK","Шампунь DOLCE MILK экстремальное увлажнение «Ханна Банана»","25.09.2024",439.0,true,"20.03.2025"],
-  ["Уход за телом","Дезодорант","NIVEA","Антиперспирант NIVEA Жемчужная красота","22.11.2024",259.99,true,"25.02.2025"],
-  ["Уход за телом","Кондиционер","DOLCE MILK","Кондиционер DOLCE MILK контроль жирности «Заводной мандарин»","16.10.2024",215.0,true,"16.02.2025"],
-  ["Уход за телом","Шампунь","Yves Rocher","Шампунь Yves Rocher для нормальных и жирных волос","18.11.2024",650.0,true,"16.02.2025"],
-  ["Уход за телом","Гель для душа","CAMAY","Гель для душа, аромат","21.01.2024",0.0,true,"05.01.2025"],
-  ["Уход за телом","Крем для рук","Бархатные ручки","Крем для рук БАРХАТНЫЕ РУЧКИ увлажняющий","18.02.2023",125.0,true,"22.12.2024"],
-  ["Уход за телом","Дезодорант","NIVEA","Антиперспирант NIVEA Love be unique Яркая свежесть","07.08.2024",169.0,true,"27.11.2024"],
-  ["Уход за телом","Гель для душа","DOLCE MILK","Гель-смузи для душа «ГРИН ДРИМ»","21.01.2024",176.0,true,"21.11.2024"],
-  ["Уход за телом","Скраб для тела","FINN LUX","Скраб для тела FINN LUX strawberry cream+sugar","13.10.2024",172.43,true,"18.11.2024"],
-  ["Уход за телом","Кондиционер","DOLCE MILK","Кондиционер DOLCE MILK с пребиотиком для здоровья волос «Райские яблочки»","05.08.2024",429.0,true,"19.10.2024"],
-  ["Уход за телом","Скраб для тела","ORGANIC SHOP","Скраб для тела ORGANIC SHOP клубника","09.09.2024",249.99,true,"13.10.2024"],
-  ["Уход за телом","Шампунь","DOLCE MILK","Шампунь DOLCE MILK с пребиотиком для здоровья волос «Райские яблочки»","08.03.2024",0.0,true,"26.09.2024"],
-  ["Уход за телом","Скраб для тела","PLANETA ORGANICA","Увлажняющий скраб для тела Tropical body scrub","21.07.2024",249.99,true,"12.09.2024"],
-  ["Уход за телом","Дезодорант","NIVEA","Антиперсперант спрей LoveBeTrendy Нежная Свежесть","21.04.2024",169.99,true,"06.08.2024"],
-  ["Уход за телом","Шампунь","ALERANA","ALERANA FOR OILY AND COMBINATION HAIR","01.02.2024",405.0,true,null],
-  ["Уход за телом","Шампунь","ALERANA","ALERANA FOR OILY AND COMBINATION HAIR","18.02.2023",400.0,true,null]
-];
+const SK_RAW = [];
 
 function mkCos(raw) {
   return raw.map(r => ({
@@ -1583,7 +1222,7 @@ function initAnalytics() {
     monthlyData[y][mo] += p.price;
   });
   const availableYears = Object.keys(monthlyData).map(Number).sort();
-  let selectedYear = availableYears[availableYears.length - 1]; // последний год по умолчанию
+  let selectedYear = availableYears[availableYears.length - 1] || new Date().getFullYear(); // последний год по умолчанию
 
   function renderYearSwitcher() {
     const container = document.getElementById('yearSwitcher');
@@ -1656,7 +1295,7 @@ function initAnalytics() {
       finishedData[y].spend[mo] += p.price;
     });
     const finishedYears = Object.keys(finishedData).map(Number).sort();
-    let selectedFinishedYear = finishedYears[finishedYears.length - 1];
+    let selectedFinishedYear = finishedYears[finishedYears.length - 1] || new Date().getFullYear();
 
     function renderFinishedYearSwitcher() {
       const container = document.getElementById('finishedYearSwitcher');
@@ -1713,7 +1352,7 @@ function initAnalytics() {
   }
   function buildCat() {
     if(charts.cat) return;
-    const cats={};
+    const cats=Object.create(null);
     forCharts.forEach(p=>{if(!cats[p.cat])cats[p.cat]={count:0,spend:0};cats[p.cat].count++;cats[p.cat].spend+=p.price;});
     const sorted=Object.entries(cats).sort((a,b)=>b[1].count-a[1].count);
     const labels=sorted.map(e=>e[0]);
@@ -1760,7 +1399,7 @@ function initAnalytics() {
   }
   function buildDuration() {
     if(charts.dur) return;
-    const durs={};
+    const durs=Object.create(null);
     finished.filter(p=>p.buyDate&&p.endDate).forEach(p=>{const days=Math.round((p.endDate-p.buyDate)/(864e5));if(days>0&&days<1100){if(!durs[p.cat])durs[p.cat]=[];durs[p.cat].push(days);}});
     const list=Object.entries(durs).map(([cat,arr])=>({cat,avg:Math.round(arr.reduce((a,b)=>a+b,0)/arr.length)})).sort((a,b)=>b.avg-a.avg);
     const labels=list.map(e=>e.cat);
@@ -1941,22 +1580,22 @@ function makeCatalog(getProds, ids) {
         const productIndex = getProds().indexOf(p);
         const price = p.price>0 ? Math.round(p.price).toLocaleString('ru-RU')+' ₽' : '—';
         const endStr = tab==='finished' && p.endDateStr
-          ? `<span class="prod-dot">·</span><span class="prod-end">${escapeArchiveHTML(archiveLabel(p))} · ${fmtDate(p.endDateStr)}</span>` : '';
+          ? `<span class="prod-dot">·</span><span class="prod-end">${escapeArchiveHTML(archiveLabel(p))} · ${escapeArchiveHTML(fmtDate(p.endDateStr))}</span>` : '';
         const colorHex = guessColor(p.color);
         const colorDot = colorHex
           ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${colorHex};border:1px solid rgba(0,0,0,0.1);vertical-align:middle;margin-right:4px;flex-shrink:0"></span>`
           : `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--surface2);border:1px solid var(--border2);vertical-align:middle;margin-right:4px;flex-shrink:0"></span>`;
         const colorStr = p.color && p.color !== '—'
-          ? `<span class="prod-dot">·</span><span class="prod-color">${colorDot}${p.color}</span>` : '';
+          ? `<span class="prod-dot">·</span><span class="prod-color">${colorDot}${escapeArchiveHTML(p.color)}</span>` : '';
         return `<div class="prod-item">
           <div class="prod-top">
             <div class="prod-left">
-              <div class="prod-brand">${p.brand}</div>
-              <div class="prod-name">${p.name}</div>
+              <div class="prod-brand">${escapeArchiveHTML(p.brand)}</div>
+              <div class="prod-name">${escapeArchiveHTML(p.name)}</div>
               <div class="prod-meta">
-                <span class="cat-badge">${p.cat}</span>
+                <span class="cat-badge">${escapeArchiveHTML(p.cat)}</span>
                 <span class="prod-dot">·</span>
-                <span class="prod-date">${fmtDate(p.buyDateStr)}</span>
+                <span class="prod-date">${escapeArchiveHTML(fmtDate(p.buyDateStr))}</span>
                 ${colorStr}
                 ${endStr}
               </div>
@@ -1995,7 +1634,7 @@ function makeCatalog(getProds, ids) {
     if (!container) return;
     const cats = [...new Set(getProds().map(p=>p.cat))].sort((a,b)=>a.localeCompare(b,'ru'));
 
-    const groups = {};
+    const groups = Object.create(null);
     cats.forEach(c => {
       const letter = c[0].toUpperCase();
       if (!groups[letter]) groups[letter] = [];
@@ -2007,9 +1646,9 @@ function makeCatalog(getProds, ids) {
 
     const rows = Object.keys(groups).sort().map(letter => {
       const items = groups[letter].map(c =>
-        `<button class="cat-tag ${selectedCats.has(c)?'active':''}" onclick="${ids.onTagClick}('${c.replace(/'/g,"\'")}')"> ${c}</button>`
+        `<button class="cat-tag ${selectedCats.has(c)?'active':''}" data-category-handler="${ids.onTagClick}" data-category="${escapeArchiveHTML(c)}"> ${escapeArchiveHTML(c)}</button>`
       ).join('');
-      return `<div class="cat-alpha-row"><span class="cat-alpha-letter">${letter}</span><div class="cat-alpha-items">${items}</div></div>`;
+      return `<div class="cat-alpha-row"><span class="cat-alpha-letter">${escapeArchiveHTML(letter)}</span><div class="cat-alpha-items">${items}</div></div>`;
     }).join('');
 
     container.innerHTML = allBtn + rows;
@@ -2160,6 +1799,7 @@ function escapeArchiveHTML(text) {
 }
 function collectionGroups() { return {tableBody:appCos,skFaceTableBody:appFace,skBodyTableBody:appBody}; }
 function persistCollections(groups = collectionGroups()) {
+  if (window.PanCloud) return window.PanCloud.write(groups);
   try {
     localStorage.setItem(COLLECTION_STORAGE_KEY,JSON.stringify({version:1,groups}));
     return true;
@@ -2246,6 +1886,8 @@ document.getElementById('archiveRestore').addEventListener('click',()=>{
 document.getElementById('archiveCancel').addEventListener('click',()=>archiveDialog.close());
 archiveDialog.addEventListener('close',()=>{archiveTarget=null;if(archiveOpener?.isConnected) archiveOpener.focus();});
 document.addEventListener('click',event=>{
+  const category=event.target.closest('[data-category-handler]');
+  if (category && ['cosSetCat','faceSetCat','bodySetCat'].includes(category.dataset.categoryHandler)) window[category.dataset.categoryHandler](category.dataset.category);
   const button=event.target.closest('[data-archive-group]');
   if(button) openArchiveDialog(button.dataset.archiveGroup,Number(button.dataset.archiveIndex),button);
 });
@@ -2254,5 +1896,8 @@ restoreCollections();
 // ── STARTUP
 showPage('analytics');
 </script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+<script src="cloud-sync.js"></script>
 </body>
 </html>
+
