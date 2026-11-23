@@ -17,7 +17,11 @@
   const dialog = el('accountDialog');
   const cacheKey = () => user ? 'project-pan.user.v2.' + user.id : GUEST;
   const redirect = () => location.origin + location.pathname;
-  const message = text => { el('accountMessage').textContent = text; };
+  const message = text => {
+    el('accountMessage').textContent = text;
+    const details=el('accountErrorDetails');
+    if (details) details.hidden=true;
+  };
   const dataMessage = text => { el('dataMessage').textContent = text; };
   function normalize(groups) {
     if (!groups || GROUPS.some(k => !Array.isArray(groups[k]) || groups[k].length > 10000)) throw new Error('Некорректная коллекция');
@@ -91,12 +95,38 @@
       return true;
     } catch (_) { toasts('Не удалось сохранить данные на устройстве'); return false; }
   }
-  function readable(error) {
+  function readable(error, context = '') {
+    const code=error?.code || '';
+    const reason=error?.message || '';
     if (['PGRST202','PGRST205','42P01','42883'].includes(error?.code)) return 'База ещё не настроена. Нужно выполнить supabase/schema.sql в SQL Editor.';
+    if (code === 'over_email_send_rate_limit') return 'Сервис временно ограничил отправку писем. Подожди немного и запроси письмо ещё раз.';
+    if (code === 'email_address_not_authorized') return 'Сервис не разрешил отправку на этот адрес. Нужно настроить отправку писем для пользователей приложения.';
+    if (code === 'email_address_invalid' || /invalid.*email/i.test(reason)) return 'Проверь адрес электронной почты.';
+    if (code === 'email_provider_disabled' || code === 'otp_disabled') return 'Восстановление по почте недоступно в настройках сервиса. Нужно проверить настройки входа.';
     if (error?.status === 429) return 'Слишком много попыток. Подожди немного и повтори.';
-    if (/email.*not.*confirmed/i.test(error?.message || '')) return 'Подтверди почту по ссылке из письма.';
-    if (/invalid.*credentials/i.test(error?.message || '')) return 'Не удалось войти. Проверь почту и пароль.';
-    return 'Не удалось связаться с облаком. Проверь интернет и повтори. Локальные данные сохранены.';
+    if (context === 'reset' && /sending.*(email|recovery)|smtp|email.*send/i.test(reason)) return 'Сервис не смог отправить письмо для смены пароля. Нужно проверить настройки отправки писем в Supabase.';
+    if (code === 'redirect_to_not_allowed' || /redirect.*(not allowed|invalid)/i.test(reason)) return 'Не удалось создать ссылку для смены пароля. Нужно проверить адрес возврата на сайт в настройках входа.';
+    if (/email.*not.*confirmed/i.test(reason)) return 'Подтверди почту по ссылке из письма.';
+    if (/invalid.*credentials/i.test(reason)) return 'Не удалось войти. Проверь почту и пароль.';
+    if (error?.name === 'AuthRetryableFetchError' || /failed to fetch|networkerror|network request failed|load failed|fetch failed/i.test(reason)) return 'Не удалось связаться с сервисом входа. Проверь интернет и повтори.';
+    if (context === 'reset') return 'Не удалось запросить письмо для смены пароля. Попробуй позже. Если ошибка повторяется, покажи сведения об ошибке.';
+    return 'Сервис не смог выполнить запрос. Попробуй позже. Локальные данные сохранены.';
+  }
+  function showAuthError(error, context) {
+    message(readable(error, context));
+    const code=typeof error?.code==='string' && /^[a-zA-Z0-9_-]{1,80}$/.test(error.code) ? error.code : '';
+    const status=Number.isInteger(error?.status) && error.status>=400 && error.status<=599 ? error.status : null;
+    if (!code && !status) return;
+    let details=el('accountErrorDetails');
+    if (!details) {
+      details=document.createElement('details'); details.id='accountErrorDetails';
+      const summary=document.createElement('summary');summary.textContent='Сведения об ошибке';details.appendChild(summary);
+      const info=document.createElement('p');info.id='accountErrorCode';details.appendChild(info);
+      el('accountMessage').after(details);
+    }
+    el('accountErrorCode').textContent=[code && 'Код: '+code,status && 'HTTP '+status].filter(Boolean).join(' · ');
+    details.hidden=false;
+    details.open=false;
   }
   async function remote(id) {
     const result = await client.from('pan_collections').select('groups,revision').eq('user_id', id).maybeSingle();
@@ -186,15 +216,17 @@
     if (recovery && !dialog.open) dialog.showModal();
     await sync();
   }
-  async function authAction(action) {
-    if (!client || authBusy) return;
+  async function authAction(action, context = '') {
+    if (authBusy) return;
+    if (!client) { message('Сервис входа ещё не загрузился. Обнови страницу и попробуй снова.'); return; }
+    if (!navigator.onLine) { message('Сейчас нет интернета. Подключись к сети, чтобы войти или запросить письмо.'); return; }
     authBusy = true;
     const buttons = el('accountForm').querySelectorAll('button');
     buttons.forEach(b => b.disabled = true);
     message('Подожди…');
     try {
       await action();
-    } catch (error) { message(readable(error)); }
+    } catch (error) { showAuthError(error, context); }
     finally { authBusy = false; buttons.forEach(b => b.disabled = false); }
   }
   el('accountForm').addEventListener('submit', event => {
@@ -215,7 +247,7 @@
       const result = await client.auth.resetPasswordForEmail(el('accountEmail').value.trim(), {redirectTo:redirect()});
       if (result.error) throw result.error;
       message('Если аккаунт существует, на эту почту придёт ссылка для смены пароля.');
-    });
+    }, 'reset');
   });
   el('newPasswordForm').addEventListener('submit', event => {
     event.preventDefault();
@@ -319,3 +351,4 @@
   }
   init();
 })();
+
